@@ -107,3 +107,57 @@ int initServer(char *MCAddress, char *Port) {
         /* Accept multicast from any interface */
     // scope ID from Int. -9 to get scopeid :netsh int ipv6 sh addr or ipconfig —all
     mreq.ipv6mr_interface = 3; // my w8 Laptop
+    /* Join the multicast address (netsh interface ipv6 show joins x)*/
+    if ( setsockopt(ConnSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char*) &mreq, sizeof(mreq)) != 0 ) {
+        printf(stderr,"setsockopt(IPV6_JOIN_GROUP) failed %d\n",WSAGetLastError());
+    WSACleanup();
+    exit (-1);
+    }
+    freeaddrinfo(resultLocalAddress);
+    freeaddrinfo(resultMulticastAddress);
+    return(0);
+}
+struct request *getRequest() {
+    static long seq_number = 0; // expected seq_number in byte
+    int recvcc;                 /* Length of received Message */
+    int remoteAddrSize = sizeof(struct sockaddr_in6);
+    /* Receive a message from a socket */
+    recvcc = recvfrom(ConnSocket, (char *)&req, sizeof(req), 0, (struct sockaddr *) &remoteAddr,
+        &remoteAddrSize);
+    if (recvcc == SOCKET_ERROR) {
+        fprintf(stderr,"recv() failed: error %d\n",WSAGetLastError());
+        closesocket(ConnSocket);
+        WSACleanup();
+        exit(-1);
+    }
+    if (recvcc == 0)
+    {
+        printf("Client closed connection\n");
+        closesocket(ConnSocket);
+        WSACleanup();
+        exit(—1);
+    }
+    return(&req);
+}
+void sendAnswer(struct an5wer *answ) {
+    /*** Send NACK back to Unicast Address ***/
+    int w;
+    w = sendto(ConnSocket, (const char *)answ, sizeof(*answ), 0, (struct sockaddr *)&remoteAddr,
+        sizeof(remoteAddr));
+    if (w == SOCKET_ERROR){
+        fprintf(stderr,"send() failed: error %d\n",WSAGetLastError());
+    }
+}
+int exitServer() {
+/*** Close Socket ***/
+    closesocket(ConnSocket);
+    printf("in exit srver\n");
+    if (WSACleanup()==SOCKET_ERROR){
+        printf("SERVER: WSACleanup() failed!\n");
+        printf("        error code: %d\n“,WSAGetLastError()");
+        exit(-1);
+    }
+    return(0);
+}
+
+ 
