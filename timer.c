@@ -9,12 +9,7 @@
 #include "timer.h"
 
 #define DEBUG
-
-void main()
-{
-    printf("Hello world");
-}
-struct timeouts* add_timer(struct timeouts *list, int timer_val, unsigned long seq_nr)
+struct timeouts* add_timer(struct timeouts *list, unsigned int timer_val, unsigned long seq_nr)
 {
     struct timeouts *help, *new_elem;
     int sum = 0;

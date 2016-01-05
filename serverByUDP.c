@@ -22,7 +22,7 @@ struct sockaddr *sockaddr_ip6_local=NULL;
 static struct sockaddr_in6 remoteAddr;;
 
 int initServer(char *MCAddress, char *Port) {
-    int trueValue = 1, loopback = O; //setsockopt
+    int trueValue = 1, loopback = 0; //setsockopt
     int val,i=0;
     int addr_len;
     struct ipv6_mreq mreq; //mu1ticast address
@@ -53,7 +53,7 @@ int initServer(char *MCAddress, char *Port) {
     ZeroMemory( &hints, sizeof(hints) );
     hints.ai_family = AF_INET6;
     hints.ai_flags  = AI_NUMERICHOST;
-    if ( getaddrinfo(MCAddress, NULL, &hints, &resultMulticastAddress) != a ){
+    if ( getaddrinfo(MCAddress, NULL, &hints, &resultMulticastAddress) != 0 ){
         fprintf(stderr,"getaddrinfo MCAddress failed with error: %d\n", WSAGetLastError());
         WSACleanup();
         exit(-1);
@@ -71,7 +71,7 @@ int initServer(char *MCAddress, char *Port) {
         exit(-1);
     }
     // Retrieve the address and print out the hex bytes
-    for(ptr=resu1tLoca1Address; ptr != NULL ;ptr=ptr->ai_next) {
+    for(ptr=resultLocalAddress; ptr != NULL ;ptr=ptr->ai_next) {
         printf("getaddrinfo response %d\n", i++);
         printf("\tFlags: 0x%x\n", ptr->ai_flags);
         printf("\tFamily: ");
@@ -88,7 +88,7 @@ int initServer(char *MCAddress, char *Port) {
                 addr_len= ptr->ai_addrlen;
                 break;
             default:
-                printf("other %ld\n", ptr—>ai_family);
+                printf("other %ld\n", ptr->ai_family);
                 break;
         }
     
@@ -102,14 +102,14 @@ int initServer(char *MCAddress, char *Port) {
         exit (-1);
     }
     /* Specify the multicast group */
-    memcpy(&mreq.ipv6mr_multiaddr, &((struct sockaddr_in6*)(resultMulticastAddr->ai_addr))->sin6_addr,
-    sizeof(mreq.ipv6mr_mu1tiaddr));
+    memcpy(&mreq.ipv6mr_multiaddr, &((struct sockaddr_in6*)(resultMulticastAddress->ai_addr))->sin6_addr,
+    sizeof(mreq.ipv6mr_multiaddr));
         /* Accept multicast from any interface */
     // scope ID from Int. -9 to get scopeid :netsh int ipv6 sh addr or ipconfig —all
     mreq.ipv6mr_interface = 3; // my w8 Laptop
     /* Join the multicast address (netsh interface ipv6 show joins x)*/
     if ( setsockopt(ConnSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char*) &mreq, sizeof(mreq)) != 0 ) {
-        printf(stderr,"setsockopt(IPV6_JOIN_GROUP) failed %d\n",WSAGetLastError());
+        fprintf(stderr,"setsockopt(IPV6_JOIN_GROUP) failed %d\n",WSAGetLastError());
     WSACleanup();
     exit (-1);
     }
@@ -135,11 +135,11 @@ struct request *getRequest() {
         printf("Client closed connection\n");
         closesocket(ConnSocket);
         WSACleanup();
-        exit(—1);
+        exit(-1);
     }
     return(&req);
 }
-void sendAnswer(struct an5wer *answ) {
+void sendAnswer(struct answer *answ) {
     /*** Send NACK back to Unicast Address ***/
     int w;
     w = sendto(ConnSocket, (const char *)answ, sizeof(*answ), 0, (struct sockaddr *)&remoteAddr,
