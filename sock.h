@@ -1,0 +1,1 @@
+void fd_reset(fd_set* fd, SOCKET ConnSocket);
