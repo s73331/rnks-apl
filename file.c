@@ -58,14 +58,14 @@ int getline(char** destination, char* source, int size, int* timesRead)
     if (*timesRead<0 || *timesRead > size / PufferSize) return -2;
     if(*timesRead < size / PufferSize)
     {
-        *destination=(char*)malloc((PufferSize+1)*sizeof(char));
-        if (*destination == NULL)
-            return -1;
+     // *destination=(char*)malloc((PufferSize+1)*sizeof(char));
+     // if (*destination == NULL)
+     //     return -1;
         strncpy(*destination, source + *timesRead*PufferSize*sizeof(char), PufferSize);
         (*timesRead)++;
         return 0;
     }
-    *destination=(char*)malloc((1+size-*timesRead*PufferSize)*sizeof(char));
+ // *destination=(char*)malloc((1+size-*timesRead*PufferSize)*sizeof(char));
     strcpy(*destination, source+*timesRead*PufferSize*sizeof(char));
     (*timesRead)++;
     return 1;
