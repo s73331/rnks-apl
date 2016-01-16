@@ -28,9 +28,13 @@ int readfile(char* path, char** destination)
         if(fgets(buf, fsize, f))
             strcat(*destination, buf);
         if (ferror(f))
-           if (fclose(f)) return 6;
-           else return -6;
+        {
+            free(buf);
+            if (fclose(f)) return 6;
+            else return -6;
+        }
     }
+    free(buf);
     if (fclose(f)) return -1;
     return 0;
 }
