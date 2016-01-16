@@ -1,14 +1,13 @@
-
-
 /* Win32 Konsole Version -  connectionless */
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include "Data.h"
 #include <WinSock2.h>
 #include <ws2tcpip.h>
 #include <ctype.h>
+
+#include "data.h"
 #include "config.h"
 #include "toUdp.h"
 #include "print.h"
@@ -16,9 +15,7 @@
 #include "local.h"
 #pragma comment(lib, "Ws2_32.lib")				// necessary for the WinSock2 lib
 
-
 #define BUFLEN 512	
-
 struct request req;
 
 /****************************************************/
@@ -37,7 +34,6 @@ struct sockaddr *sockaddr_ip6_local = NULL;
 /****************************************************/
 static struct addrinfo *resultMulticastAddress = NULL;
 
-
 void Usage(char *ProgName)					// How to use program
 {
 	fprintf(stderr, P_Message_1);
@@ -51,8 +47,6 @@ void Usage(char *ProgName)					// How to use program
 }
 
 int initServer(char *MCAddress, char *Port) {
-
-
 	int trueValue = 0, loopback = 1; //setsockopt
 	int val, i = 0;
 	int addr_len;
@@ -97,13 +91,11 @@ int initServer(char *MCAddress, char *Port) {
 		exit(-1);
 	}
 
-
 	/* Resolve local address (anyaddr) to bind*/
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET6;
 	hints.ai_socktype = SOCK_DGRAM;
 	hints.ai_protocol = IPPROTO_UDP;
-
 	hints.ai_flags = AI_PASSIVE; // localhost
 
 	val = getaddrinfo(NULL, Port, &hints, &resultLocalAddress);
@@ -114,7 +106,7 @@ int initServer(char *MCAddress, char *Port) {
 		exit(-1);
 	}
 
-	//Retrive the address and print  out the hex bytes
+	//Retrieve the address and print  out the hex bytes
 	for (ptr = resultLocalAddress; ptr != NULL; ptr = ptr->ai_next) {
 		printf("getaddrinfo response %d\n", i++);
 		printf("\tFlags: 0x%x\n", ptr->ai_flags);
@@ -184,18 +176,14 @@ struct request *getRequest() {
 	int recvcc;		     /*Length of received Message */
 	int remoteAddrSize = sizeof(struct sockaddr_in6);
 
-
 	/* Receive a message from a socket */
-
 	recvcc = recvfrom(ConnSocket, (char*)&req, sizeof(req), 0, (struct sockaddr *) resultMulticastAddress, &remoteAddrSize);
-
 	if (recvcc == SOCKET_ERROR) {
 		fprintf(stderr, "recv() failed: error %d\n", WSAGetLastError());
 		closesocket(ConnSocket);
 		WSACleanup();
 		exit(-3);
 	}
-
 	if (recvcc == 0) {
 		printf("Client closed connection\n");
 		closesocket(ConnSocket);
@@ -218,7 +206,6 @@ void sendAnswer(struct answer * answ) {
 		fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
     else printAns(*answ, 1);
 }
-
 
 int exitServer() {
 	/********************/
