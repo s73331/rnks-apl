@@ -27,9 +27,9 @@ int writefile(char* path, char* string);
              0 success
              1 returned string
             -1 malloc failed
-            -2 illegal offset
+            -2 times read too high
     Returns a line as long as PufferSize in data.h or, if the source is ending, the last string.
     If return is 0, destination is not null-terminated.
     Destination must be preallocated of size sizeof(char)*PufferSize.
 */
-int getline(char** destination, char* source, int size, int* timesRead);
+int getline(char* destination, char* source, int size, int* timesRead);
