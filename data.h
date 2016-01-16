@@ -34,3 +34,10 @@ struct answer {
     unsigned SeNo;
     #define ErrNo SeNo      /* are identical */
 };
+
+typedef struct _strlist
+{
+    char str[PufferSize];
+    struct _strlist* next;
+    struct _strlist* prev;
+}strlist;

@@ -21,7 +21,7 @@ int  readfile(char* path, char** destination, int* length);
              2 error when writing to file
             -2 error when writing to file and closing the file
 */
-int writefile(char* path, char* string);
+int writefile(char* path, struct _strlist* string);
 
 /*  returns:
              0 success

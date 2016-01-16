@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "file.h"
 #include "data.h"
 int readfile(char* path, char** destination, int* length)
 {
@@ -42,14 +43,21 @@ int readfile(char* path, char** destination, int* length)
     if (fclose(f)) return -1;
     return 0;
 }
-int writefile(char* path, char* string)
+int writefile(char* path, strlist* start)
 {
     FILE* f = fopen(path, "w");
     if (f == NULL) return 1;
-    if(fputs(string, f)<0) 
-        if (fclose(f)) return -2;
-        else return 2;
-    if(fclose(f)) return -1;
+    char buf[PufferSize + 1];
+    while (start != NULL)
+    {
+        strncpy(buf, start->str, PufferSize);
+        buf[PufferSize] = 0;
+        if (fputs(buf, f) < 0)
+            if (fclose(f)) return -2;
+            else return 2;
+        start = start->next;
+    }
+    if (fclose(f)) return -1;
     return 0;
 }
 
