@@ -313,7 +313,8 @@ int main() {
             stay = 0;
         }
     }
-    writefile(FILE_TO_WRITE, strl);
+    int w;
+    if (w=writefile(FILE_TO_WRITE, strl)) fprintf(stderr, "writefile() returned %i", w);
 	fflush(stdin);
 	getchar();
 	return 0;
