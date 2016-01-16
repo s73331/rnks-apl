@@ -16,7 +16,7 @@ struct request {
     #define ReqData  'D'    // ReqData '0'
     #define ReqClose 'C'    // ReqClose
     long FlNr;              /* Data length (line of text) in Byte ; */
-    unsigned long SeNr;     /* Sequence Number (== 6) beginn of file */
+    unsigned long SeNr;     /* Sequence Number (== 0) beginn of file */
     #define PufferSize 256
     char name[PufferSize];  // Data --> line of text
 };
