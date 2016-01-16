@@ -64,8 +64,8 @@ int initServer(char *MCAddress, char *Port) {
 
 	wVersionRequested = MAKEWORD(2, 1);
 	if (WSAStartup(wVersionRequested, &wsaData) == SOCKET_ERROR) {
-		printf("SERVER: WSAStartup() failed\n");
-		printf("        error code: %d\n", WSAGetLastError());
+		fprintf(stderr, "SERVER: WSAStartup() failed\n");
+		fprintf(stderr, "        error code: %d\n", WSAGetLastError());
 		exit(-1);
 	}
 
@@ -109,7 +109,7 @@ int initServer(char *MCAddress, char *Port) {
 	val = getaddrinfo(NULL, Port, &hints, &resultLocalAddress);
 
 	if (val != 0) {
-		printf("getaddrinfo localAddress failed with error: %d\n", val);
+		fprintf(stderr, "getaddrinfo localAddress failed with error: %d\n", val);
 		WSACleanup();
 		exit(-1);
 	}
@@ -228,8 +228,8 @@ int exitServer() {
 	printf("in exit server\n");
 
 	if (WSACleanup() == SOCKET_ERROR) {
-		printf("Server: WSACleanup() failed!\n");
-		printf("        error code: %d\n", WSAGetLastError());
+		fprintf(stderr, "Server: WSACleanup() failed!\n");
+		fprintf(stderr, "        error code: %d\n", WSAGetLastError());
 		exit(-4);
 	}
 	return(0);
@@ -288,7 +288,7 @@ int main() {
             strlist* next = (strlist*)malloc(sizeof(strlist));
             if (next == NULL)
             {
-                printf("error when mallocing\nexiting...");
+                fprintf(stderr, "error when mallocing\nexiting...");
                 exit(1);
             }
             next->next = NULL;
