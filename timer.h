@@ -11,7 +11,7 @@ typedef struct timeouts
     
     Always returns list.
 */
-struct timeouts* addtimer(struct timeouts *list, int timer_val, unsigned long seq_nr); //add in order
+struct timeouts* add_timer(struct timeouts *list, int timer_val, unsigned long seq_nr);
 
 /*
     Removes the timer with the given seq_nr.
