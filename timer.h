@@ -5,3 +5,5 @@ typedef struct timeouts
 	struct timeouts* next;
 } timeouts2;
 struct timeouts* addtimer(struct timeouts *list, int timer_val, unsigned long seq_nr); //add in order
+struct timeouts* del_timer(struct timeouts *list, unsigned long seq_nr);
+int decrement_timer(struct timeouts *list);
