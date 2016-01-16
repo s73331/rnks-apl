@@ -1,6 +1,8 @@
 # rnks-apl  
-Notizen aus letzter Vorlesung vor Weihnachten  
+um das local.h nicht herumschwirren zu haben
+git update-index --assume-unchanged local.h
 
+##Notizen aus letzter Vorlesung vor Weihnachten  
 ####Sender
 *UDPv6 Socket öffnen  
 *Port wählen (50000)  
