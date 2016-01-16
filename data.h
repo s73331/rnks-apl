@@ -13,7 +13,7 @@ extern char *errorTable[];
 struct request {
     unsigned char ReqType;
     #define ReqHello 'H'    // ReqHello
-    #define ReqData  'D'    // Rquata '0'
+    #define ReqData  'D'    // ReqData '0'
     #define ReqClose 'C'    // ReqClose
     long FlNr;              /* Data length (line of text) in Byte ; */
     unsigned long SeNr;     /* Sequence Number (== 6) beginn of file */
