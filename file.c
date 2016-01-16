@@ -78,3 +78,24 @@ int getline(char* destination, char* source, int size, int* timesRead)
     (*timesRead)++;
     return 1;
 }
+void addtolist(strlist* start, strlist* last, char* buf)
+{
+    strlist* next = (strlist*)malloc(sizeof(strlist));
+    if (next == NULL)
+    {
+        fprintf(stderr, "error when mallocing\nexiting...");
+        exit(1);
+    }
+    next->next = NULL;
+    strncpy(next->str, buf, PufferSize);
+    if (start == NULL)
+    {
+        last = next;
+        start = next;
+    }
+    else
+    {
+        last->next = next;
+        last = next;
+    }
+}

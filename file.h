@@ -33,3 +33,8 @@ int writefile(char* path, struct _strlist* string);
     Destination must be preallocated of size sizeof(char)*PufferSize.
 */
 int getline(char* destination, char* source, int size, int* timesRead);
+
+/*
+    
+*/
+void addtolist(struct _strlist* start, struct _strlist* last, char* buf);

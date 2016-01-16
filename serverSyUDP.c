@@ -269,27 +269,7 @@ int main() {
         }
         if (req->ReqType == ReqData)
         {
-            char buf[PufferSize + 1];
-            strncpy(buf, req->name, 10);
-            buf[10] = 0;
-            strlist* next = (strlist*)malloc(sizeof(strlist));
-            if (next == NULL)
-            {
-                fprintf(stderr, "error when mallocing\nexiting...");
-                exit(1);
-            }
-            next->next = NULL;
-            strncpy(next->str, req->name, PufferSize);
-            if (strl==NULL)
-            {
-                last = next;
-                strl = next;
-            }
-            else
-            {
-                last->next = next;
-                last = next;
-            }
+            addtolist(strl, last, req->name);
             continue;
         }
         if (req->ReqType == ReqClose)
