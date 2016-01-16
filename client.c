@@ -198,8 +198,8 @@ int initClient(char *MCAddress, char *Port) {
 
 	wVersionRequested = MAKEWORD(2, 1);
 	if (WSAStartup(wVersionRequested, &wsaData) == SOCKET_ERROR) {
-		printf("SERVER: WSAStartup() failed\n");
-		printf("        error code: %d\n", WSAGetLastError());
+		fprintf(stderr, "SERVER: WSAStartup() failed\n");
+		fprintf(stderr, "        error code: %d\n", WSAGetLastError());
 		exit(-1);
 	}
 
@@ -243,7 +243,7 @@ int initClient(char *MCAddress, char *Port) {
 	val = getaddrinfo(NULL, Port, &hints, &resultLocalAddress);
 
 	if (val != 0) {
-		printf("getaddrinfo localAddress failed with error: %d\n", val);
+		fprintf(stderr, "getaddrinfo localAddress failed with error: %d\n", val);
 		WSACleanup();
 		exit(-1);
 	}
