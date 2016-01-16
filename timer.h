@@ -7,16 +7,20 @@ typedef struct timeouts
 
 /*
     If list was NULL, creates a new item with the parameters and assigns it to list.
-    Otherwise places a timer at the correct position in the list, manipulating its time to be the sum of it and its predecessors.
+    Otherwise places a timer at the correct position in the list, making its timer to match timer_val to the sum of it and its predecessors.
     
     Always returns list.
 */
 struct timeouts* addtimer(struct timeouts *list, int timer_val, unsigned long seq_nr); //add in order
 
 /*
+    Removes the timer with the given seq_nr.
+    If there is no timer with the given seq_nr, nothing happens.
+
     return: 
             0       if list is NULL
             list    otherwise
+        NOTE: list can be NULL
 */
 struct timeouts* del_timer(struct timeouts *list, unsigned long seq_nr);
 
