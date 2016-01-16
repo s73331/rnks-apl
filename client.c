@@ -377,8 +377,8 @@ int main(int argc, char *argv[])
 		}
 		printReq(req, 1);
         nr++;
-		fflush(stdin);
-		getchar();
+	//  fflush(stdin);
+	//  getchar();
 	}
     req.ReqType = ReqClose;
     req.SeNr++;
