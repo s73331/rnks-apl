@@ -256,20 +256,28 @@ int main() {
     strlist* strl = NULL;
     strlist* last = NULL;
 	int sqnr_counter = 1, window_size = 1, drop_pack_sqnr, drop = 0;
+    int expectedSequence = 0;
     //int c, v;
     int stay = 1;
     while (stay)
     {
         struct request *req = getRequest();
+        if (req->SeNr != expectedSequence)
+        {
+            //NACK expected Sequence
+            continue;
+        }
         if (req->ReqType == ReqHello)
         {
             ans = answreturn(req, &sqnr_counter, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
+            expectedSequence++;
             continue;
         }
         if (req->ReqType == ReqData)
         {
             addtolist(strl, last, req->name);
+            expectedSequence++;
             continue;
         }
         if (req->ReqType == ReqClose)
