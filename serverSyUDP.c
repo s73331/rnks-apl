@@ -251,7 +251,7 @@ struct answer *answreturn(struct request *reqPtr, int *sqnr_counter, int *window
 
 int main() {
 	initServer(DEFAULT_SERVER, DEFAULT_PORT);
-	static struct answer *ans;
+	struct answer *ans;
     strlist* strl = NULL;
     strlist* last = NULL;
 	int sqnr_counter = 1, window_size = 1, drop_pack_sqnr, drop = 0;
