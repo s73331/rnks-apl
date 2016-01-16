@@ -250,6 +250,7 @@ struct answer *answreturn(struct request *reqPtr, int *sqnr_counter, int *window
 }
 
 int main() {
+    char* filename = FILE_TO_WRITE;
 	initServer(DEFAULT_SERVER, DEFAULT_PORT);
 	struct answer *ans;
     strlist* strl = NULL;
@@ -299,7 +300,7 @@ int main() {
         }
     }
     int w;
-    if (w=writefile(FILE_TO_WRITE, strl)) fprintf(stderr, "writefile() returned %i", w);
+    if (w=writefile(filename, strl)) fprintf(stderr, "writefile() returned %i", w);
 	fflush(stdin);
 	getchar();
 	return 0;
