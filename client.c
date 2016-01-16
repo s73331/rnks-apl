@@ -1,10 +1,6 @@
 #ifdef _MSC_VER
 #define _CRT_SECURE_NO_WARNINGS
 #endif
-
-#include "toUDP.h" //SAP to our protocol
-#include "Config.h"
-#include "Data.h"
 #include <dos.h>
 #include <time.h>
 #include <stdio.h>
@@ -19,6 +15,9 @@
 #include "file.h"
 #include "local.h"
 #include "print.h"
+#include "toUDP.h" //SAP to our protocol
+#include "config.h"
+#include "data.h"
 #pragma comment(lib, "Ws2_32.lib")	
 
 #define BUFLEN 512
