@@ -6,8 +6,10 @@ typedef struct timeouts
 } timeouts2;
 
 /*
-    Always returns list.
     If list was NULL, creates a new item with the parameters and assigns it to list.
+    Otherwise places a timer at the correct position in the list, manipulating its time to be the sum of it and its predecessors.
+    
+    Always returns list.
 */
 struct timeouts* addtimer(struct timeouts *list, int timer_val, unsigned long seq_nr); //add in order
 
