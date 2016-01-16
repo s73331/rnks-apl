@@ -267,7 +267,6 @@ int main() {
 	static struct answer *ans;
     strlist* strl = NULL;
     strlist* last = NULL;
-    int strlWasCreated = 0;
 	int sqnr_counter = 1, window_size = 1, drop_pack_sqnr, drop = 0;
     //int c, v;
     int stay = 1;
@@ -293,16 +292,15 @@ int main() {
             }
             next->next = NULL;
             strncpy(next->str, req->name, PufferSize);
-            if (strlWasCreated)
-            {
-                last->next = next;
-                last = next;
-            }
-            else
+            if (strl==NULL)
             {
                 last = next;
                 strl = next;
-                strlWasCreated = 1;
+            }
+            else
+            {
+                last->next = next;
+                last = next;
             }
             continue;
         }
