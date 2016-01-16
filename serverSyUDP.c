@@ -224,23 +224,23 @@ int exitServer() {
 
 struct answer *answreturn(struct request *reqPtr, int *sqnr_counter, int *window_size, int *drop_pack_sqnr)
 {
-	static struct answer   answ;
+	struct answer* answ =malloc(sizeof(answ));
 
 	switch (reqPtr->ReqType)
 	{
 	case ReqHello:
-		answ.AnswType = AnswHello;
-		answ.FlNr = reqPtr->FlNr;
-		answ.SeNo = reqPtr->SeNr;
+		answ->AnswType = AnswHello;
+		answ->FlNr = reqPtr->FlNr;
+		answ->SeNo = reqPtr->SeNr;
 		(*window_size) = reqPtr->FlNr;
-		return(&answ);
+		return(answ);
 		break;
     case ReqClose:
-        answ.AnswType = AnswClose;
-        answ.FlNr = reqPtr->FlNr;
-        answ.SeNo = reqPtr->SeNr;
+        answ->AnswType = AnswClose;
+        answ->FlNr = reqPtr->FlNr;
+        answ->SeNo = reqPtr->SeNr;
         (*window_size) = reqPtr->FlNr;
-        return(&answ);
+        return(answ);
         break;
 	default:
 		printf("default");
