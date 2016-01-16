@@ -172,7 +172,7 @@ int initServer(char *MCAddress, char *Port) {
 
 struct request *getRequest() {
 	//printf("in get req\n");
-	static long seq_number = 0;  //expected seq_number in byte
+	//static long seq_number = 0;  //expected seq_number in byte
 	int recvcc;		     /*Length of received Message */
 	int remoteAddrSize = sizeof(struct sockaddr_in6);
 
