@@ -8,7 +8,7 @@
 
 #include "timer.h"
 
-#define DEBUG
+//#define DEBUG
 struct timeouts* add_timer(struct timeouts *list, unsigned int timer_val, unsigned long seq_nr)
 {
     struct timeouts *help, *new_elem;
@@ -94,11 +94,10 @@ struct timeouts* del_timer(struct timeouts *list, unsigned long seq_nr)
     return list;
 }
 int decrement_timer(struct timeouts *list) {
-    struct timeouts *help;
     if (list == NULL) return -1;
     list->timer--;
     #ifdef DEBUG
-        help=list;
+        struct timeouts *help=list;
         if (list==NULL) printf("del_timer: LIST empty \n");
         while (help != NULL){
             printf("decrement_timer:seq_nr %lu \t timer %lu \n", help->seq_nr,help->timer);
