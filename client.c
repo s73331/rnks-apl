@@ -371,13 +371,13 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
         }
         if (lastData)
         {
-            req->SeNr = *lastSeNr + 1;
+            (*lastSeNr)++;
+            req->SeNr = *lastSeNr;
             req->ReqType = ReqClose;
             return 2;
         }
         (*lastSeNr)++;
-        //req->SeNr = *lastSeNr;
-        req->SeNr++;
+        req->SeNr = *lastSeNr;
         req->ReqType = ReqData;
         char buf[PufferSize + 1];
         buf[PufferSize] = 0;
