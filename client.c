@@ -393,6 +393,27 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
         return gl;
     }
 }
+int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int lastData, SOCKET ConnSocket, int makereq)
+{
+    int ret = 0;
+    if(makereq) ret = makeRequest(req, ans, strli, toAnswer, lastSeNr, lastData);
+    int w = sendto(ConnSocket, (const char*)req, sizeof(*req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
+    if (w == SOCKET_ERROR) {
+        fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
+        exit(1);
+    }
+    return ret;
+}
+int recvfromw(SOCKET ConnSocket, char* buf, size_t len, int flags, struct sockaddr* from, int* fromlen)
+{
+    int ret=recvfrom(ConnSocket, buf, len, flags, from, fromlen);
+    if (ret == SOCKET_ERROR)
+    {
+        fprintf(stderr, "recvfrom() failed: error %d\n", WSAGetLastError());
+        exit(1);
+    }
+    return ret;
+}
 
 int main(int argc, char *argv[])
 {
@@ -417,11 +438,7 @@ int main(int argc, char *argv[])
     lastData=makeRequest(&req, ans, strli, 0, &lastSeNr, lastData);
     while (stay)
     {
-        w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
-        if (w == SOCKET_ERROR) {
-            fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
-            exit(1);
-        }
+        sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, DONTMAKE);
         tl = add_timer(tl, 1, req.SeNr);
         tv.tv_usec = (tl->timer)*TO;
         fd_reset(&fd, ConnSocket);
@@ -440,12 +457,7 @@ int main(int argc, char *argv[])
         stay = 0;
         tl = del_timer(tl, req.SeNr);
     }
-    int recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-    if (recvcc == SOCKET_ERROR)
-    {
-        fprintf(stderr, "recvfrom() failed: error %d\n", WSAGetLastError());
-        exit(3);
-    }
+    recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
     printAns(ans, 0);
     if (ans.AnswType != AnswHello)
     {
@@ -457,16 +469,12 @@ int main(int argc, char *argv[])
         fprintf(stderr, "reading file failed with error code: %i\nexiting...", r);
         exit(5);
     }
-    lastData=makeRequest(&req, ans, strli, 1, &lastSeNr, lastData);
+    lastData=makeRequest(&req, ans, strli, ANSWER, &lastSeNr, lastData);
     stay = 1;
     while(stay)
 	{
         fd_reset(&fd, ConnSocket);
-        w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
-        if (w == SOCKET_ERROR) {
-            fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
-            exit(6);
-        }
+        sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, DONTMAKE);
         fd_reset(&fd, ConnSocket);
         tl = add_timer(tl, 1, req.SeNr);
         tv.tv_usec = (tl->timer)*TO;
@@ -485,12 +493,7 @@ int main(int argc, char *argv[])
             exit(7);
         }
         tl=del_timer(tl, req.SeNr);
-        recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-        if (recvcc == SOCKET_ERROR)
-        {
-            fprintf(stderr, "recvfrom() failed: error %d\n", WSAGetLastError());
-            exit(8);
-        }
+        recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
         printAns(ans, 0);
         if (ans.AnswType != AnswNACK)
         {
@@ -526,12 +529,7 @@ int main(int argc, char *argv[])
         tl = del_timer(tl, req.SeNr);
         stay = 0;
     }
-    recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-    if (recvcc == SOCKET_ERROR)
-    {
-        fprintf(stderr, "recvfrom() failed: error %d\n", WSAGetLastError());
-        exit(11);
-    }
+    recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
     printAns(ans, 0);
     if (ans.AnswType != AnswClose)
     {
