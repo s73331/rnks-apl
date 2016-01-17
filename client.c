@@ -319,6 +319,7 @@ int main(int argc, char *argv[])
 {
     printf("Sender(Client)\n\n");
     int stay = 1;
+    int stay2 = 1;
     struct timeouts* tl=NULL;
     int seqNr = 0;
     struct answer ans;
@@ -340,9 +341,9 @@ int main(int argc, char *argv[])
             fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
             exit(1);
         }
-        tl=add_timer(tl, 1, seqNr);
         printReq(req, 1);
-        tv.tv_usec = (tl->timer)*TIMEOUT_INT*1000; //TIMEOUT_INT in milli, tv_usec in micro
+        tl = add_timer(tl, 1, seqNr);
+        tv.tv_usec = (tl->timer)*TO;
         int s=select(0, &fd, 0, 0, &tv);
         if (!s) //timer expired
         {
@@ -356,6 +357,7 @@ int main(int argc, char *argv[])
             exit(1);
         }
         stay = 0;
+        tl = del_timer(tl, seqNr);
     }
     int recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
     if (recvcc == SOCKET_ERROR)
@@ -369,7 +371,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ans.answType not AnswHello: %c\nexiting...", ans.AnswType);
         exit(1);
     }
-    //printAnswer(&ans);
     char* str = 0;
     int strl;
     int strr=0;
@@ -398,15 +399,35 @@ int main(int argc, char *argv[])
             }
         }
         strncpy(req.name, buf, PufferSize);
-        buf[10] = 0;
-		w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
-		if (w == SOCKET_ERROR) {
-			fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
-		}
-		printReq(req, 1);
+        stay2 = 1;
+        while (stay2)
+        {
+            w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
+            if (w == SOCKET_ERROR) {
+                fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
+            }
+            fd_reset(&fd, ConnSocket);
+            printReq(req, 1);
+            tl = add_timer(tl, 1, seqNr);
+            tv.tv_usec = (tl->timer)*TO;
+            int s = select(0, &fd, 0, 0, &tv);
+            if (!s) //timer expired
+            {
+                decrement_timer(tl);
+                tl=del_timer(tl, seqNr);
+                stay2 = 0;
+                continue;
+            }
+            if (s == SOCKET_ERROR)
+            {
+                fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
+                exit(1);
+            }
+            tl=del_timer(tl, seqNr);
+        }
         seqNr++;
-	//  fflush(stdin);
-	//  getchar();
+        //  fflush(stdin);
+        //  getchar();
 	}
     req.ReqType = ReqClose;
     req.SeNr++;
