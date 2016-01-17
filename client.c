@@ -319,7 +319,7 @@ return:
          0 - success
          1 - got last line
 */
-int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int lastData)
+int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int* lastData)
 {
     if (toAnswer)
     {
@@ -366,9 +366,13 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
             req->ReqType = ReqHello;
             return 0;
         }
-        if (lastData)
+        if (*lastData)
         {
-            (*lastSeNr)++;
+            if (*lastData == 1)
+            {
+                (*lastData)++;
+                (*lastSeNr)++;
+            }
             req->SeNr = *lastSeNr;
             req->ReqType = ReqClose;
             return 0;
@@ -389,7 +393,7 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
         return gl;
     }
 }
-int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int lastData, SOCKET ConnSocket, int makereq)
+int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int* lastData, SOCKET ConnSocket, int makereq)
 {
     int ret = 0;
     if(makereq) ret = makeRequest(req, ans, strli, toAnswer, lastSeNr, lastData);
@@ -427,7 +431,6 @@ int main(int argc, char *argv[])
     struct timeouts* tl=NULL;
     struct answer ans;
     ans.SeNo = 0;
-    int w;
     struct request req;
     req.SeNr = 0;
     fd_set fd;
@@ -438,7 +441,7 @@ int main(int argc, char *argv[])
     int lastData = 0;
 
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
-    lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, MAKE);
+    lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, MAKE);
     while (stay)
     {
         tl = add_timer(tl, 1, req.SeNr);
@@ -449,7 +452,7 @@ int main(int argc, char *argv[])
         {
             decrement_timer(tl);
             tl=del_timer(tl, req.SeNr);
-            sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, DONTMAKE);
+            sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, DONTMAKE);
             continue;
         }
         if(s==SOCKET_ERROR)
@@ -468,7 +471,7 @@ int main(int argc, char *argv[])
     }
     if (readfilew(FILE_TO_READ, &strli))
         fprintf(stderr, "closing file failed\ncontinuing...");        
-    lastData+=sendRequest(&req, ans, strli, ANSWER, &lastSeNr, lastData, ConnSocket, MAKE);
+    lastData+=sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, MAKE);
     stay = 1;
     while(stay)
 	{
@@ -480,8 +483,8 @@ int main(int argc, char *argv[])
         {
             decrement_timer(tl);
             tl=del_timer(tl, req.SeNr);
-            if (lastData) break;
-            lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, MAKE);
+            if (lastData) sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, MAKE);
+            lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, MAKE);
             continue;
         }
         if (s == SOCKET_ERROR)
@@ -491,48 +494,20 @@ int main(int argc, char *argv[])
         }
         tl=del_timer(tl, req.SeNr);
         recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-        if (ans.AnswType != AnswNACK)
+        switch (ans.AnswType)
         {
-            fprintf(stderr, "ans.answType not AnswNACK: %c\nexiting...", ans.AnswType);
-            exit(9);
-        }
-        lastData+=sendRequest(&req, ans, strli, 1, &lastSeNr, lastData, ConnSocket, MAKE);
-    }
-    lastData += makeRequest(&req, ans, strli, 0, &lastSeNr, lastData);
-    stay = 1;
-    while (stay)
-    {
-        w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
-        if (w == SOCKET_ERROR) {
-            fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
-        }
-        fd_reset(&fd, ConnSocket);
-        printReq(req, 1);
-        tl = add_timer(tl, 1, req.SeNr);
-        tv.tv_usec = (tl->timer)*TO;
-        int s = select(0, &fd, 0, 0, &tv);
-        if (!s) //timer expired
-        {
-            decrement_timer(tl);
-            tl = del_timer(tl, req.SeNr);
+        case AnswNACK:
+            lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, MAKE);
             continue;
+        case AnswClose:
+            stay = 0;
+            continue;
+        default:
+            fprintf(stderr, "not recognized Answ\nexiting");
+            exit(1);
         }
-        if (s == SOCKET_ERROR)
-        {
-            fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
-            exit(10);
-        }
-        tl = del_timer(tl, req.SeNr);
-        stay = 0;
-    }
-    recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-    if (ans.AnswType != AnswClose)
-    {
-        fprintf(stderr, "ans.answType not AnswClose: %c\nexiting...", ans.AnswType);
-        exit(12);
     }
 	closesocket(ConnSocket);
 	WSACleanup();
-
 	return 0;
 }
