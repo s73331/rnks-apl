@@ -20,6 +20,7 @@
 #include "data.h"
 #include "timer.h"
 #include "sock.h"
+#include "manipulation.h"
 #pragma comment(lib, "Ws2_32.lib")	
 
 #define BUFLEN 512
@@ -338,7 +339,6 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
                 exit(6);
             }
             strncpy(req->name, buf, PufferSize);
-            printReq(*req, 1);
             *lastSeNr = req->SeNr;
             return gl;
         }
@@ -356,7 +356,6 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
                 exit(6);
             }
             strncpy(req->name, buf, PufferSize);
-            printReq(*req, 1);
             return gl;
         }
     }
@@ -366,7 +365,6 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
         {
             req->FlNr = 1;
             req->ReqType = ReqHello;
-            printReq(*req, 1);
             return 2;
         }
         if (lastData)
@@ -389,7 +387,6 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
             exit(6);
         }
         strncpy(req->name, buf, PufferSize);
-        printReq(*req, 1);
         return gl;
     }
 }
@@ -397,11 +394,18 @@ int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAn
 {
     int ret = 0;
     if(makereq) ret = makeRequest(req, ans, strli, toAnswer, lastSeNr, lastData);
+    if (NOSEND_ARRAY_SIZE > req->SeNr && NOSEND_DATA[req->SeNr])
+    {
+        printReq(*req, 4);
+        NOSEND_DATA[req->SeNr]--;
+        return ret;
+    }
     int w = sendto(ConnSocket, (const char*)req, sizeof(*req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
     if (w == SOCKET_ERROR) {
         fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
         exit(1);
     }
+    printReq(*req, 1);
     return ret;
 }
 int recvfromw(SOCKET ConnSocket, char* buf, size_t len, int flags, struct sockaddr* from, int* fromlen)
