@@ -274,7 +274,7 @@ int main() {
     while (stay)
     {
         struct request *req = getRequest();
-        if (IGNORE_DATA[req->SeNr])
+        if (IGNORE_ARRAY_SIZE>req->SeNr && IGNORE_DATA[req->SeNr])
         {
             printReq(*req, 4);
             IGNORE_DATA[req->SeNr]--;
@@ -307,7 +307,7 @@ int main() {
         {
             strl=addtolist(strl, req->name);
             expectedSequence++;
-            if (cacheUsed&&expectedSequence==cache.SeNr)
+            if (cacheUsed && expectedSequence==cache.SeNr)
             {
                 strl = addtolist(strl, cache.name);
                 expectedSequence++;
