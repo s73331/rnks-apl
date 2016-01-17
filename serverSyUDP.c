@@ -278,7 +278,6 @@ int main() {
         {
             ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
-            fprintf(stderr, "expected no %i, got no %i, saving\n", expectedSequence, req->SeNr);
             cache.SeNr = req->SeNr;
             cache.ReqType = req->ReqType;
             strncpy(cache.name, req->name, PufferSize);
