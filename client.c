@@ -483,7 +483,6 @@ int main(int argc, char *argv[])
         {
             decrement_timer(tl);
             tl=del_timer(tl, req.SeNr);
-            if (lastData) sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, MAKE);
             lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, MAKE);
             continue;
         }
