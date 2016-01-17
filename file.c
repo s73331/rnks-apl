@@ -60,6 +60,13 @@ int readfile(char* path, struct _strlist** start)
     if (fclose(f)) return -1;
     return 0;
 }
+int readfilew(char* path, struct _strlist** start)
+{
+    int ret = readfile(path, start);
+    if (!ret || ret == -1) return ret;
+    fprintf(stderr, "readfile() returned code %i\nexiting", ret);
+    exit(1);
+}
 int writefile(char* path, strlist* start)
 {
     FILE* f = fopen(path, "w");
@@ -77,7 +84,6 @@ int writefile(char* path, strlist* start)
     if (fclose(f)) return -1;
     return 0;
 }
-
 int getline(strlist* strl, int identifier, char* destination)
 {
     if (!strl||!destination) return -1;

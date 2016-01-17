@@ -14,6 +14,12 @@
 */
 int readfile(char* path, struct _strlist** start);
 
+/*
+    Wrapper for readfile(). Writes so stderr and exits when return code is neither 0 nor -1.
+    Otherwise behaves the same as readfile().
+*/
+int readfilew(char* path, struct _strlist** start);
+
 /*  returns:
              0 success
              1 error when opening file at path, mode "w"
