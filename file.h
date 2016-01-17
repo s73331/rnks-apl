@@ -12,7 +12,7 @@
     The input value of destination does not matter.
     The input value of length      does not matter.
 */
-int  readfile(char* path, char** destination, int* length);
+int readfile(char* path, struct _strlist** start);
 
 /*  returns:
              0 success
@@ -24,15 +24,15 @@ int  readfile(char* path, char** destination, int* length);
 int writefile(char* path, struct _strlist* string);
 
 /*  returns:
-             0 success
-             1 returned string
-            -1 malloc failed
-            -2 times read too high
+             1 success
+             0 returned string
+            -1 passed NULL as strl or destination
+            -2 identifier too high
     Returns a line as long as PufferSize in data.h or, if the source is ending, the last string.
     If return is 0, destination is not null-terminated.
     Destination must be preallocated of size sizeof(char)*PufferSize.
 */
-int getline(char* destination, char* source, int size, int* timesRead);
+int getline(struct _strlist* strl, int identifier, char* destination);
 
 /*
     

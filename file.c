@@ -4,7 +4,7 @@
 #include <string.h>
 #include "file.h"
 #include "data.h"
-int readfile(char* path, char** destination, int* length)
+int readfile(char* path, strlist** start)
 {
 	FILE* f = fopen(path, "r");
 	if (f == NULL) return 1;
@@ -18,28 +18,44 @@ int readfile(char* path, char** destination, int* length)
     if(fseek(f, 0, SEEK_SET))
         if (fclose(f)) return -4;
         else return 4;
-    *destination = malloc(fsize + 1);
-    (*destination)[0] = 0;
-    if (*destination == NULL)
+    char *temp = malloc((fsize + 1)*sizeof(char));
+    if (temp == NULL)
         if (fclose(f)) return -5;
         else return 5;
-    char* buf = malloc(sizeof(char)*(fsize+1));
-    *length = 0;
+    (*temp) = 0;
+    char* buf = malloc(sizeof(char)*(fsize + 1));
+    int length = 0;
     while (!feof(f))
     {
         if (fgets(buf, fsize, f))
         {
-            strcat(*destination, buf);
-            *length += strlen(buf);
+            strcat(temp, buf);
+            length += strlen(buf);
         }
         if (ferror(f))
         {
             free(buf);
+            free(temp);
             if (fclose(f)) return 6;
             else return -6;
         }
     }
-    free(buf);
+    strlist* li;
+    strlist* help;
+    li = malloc(sizeof(li));
+    if (li==NULL) return 5;
+    li->next = NULL;
+    *start = li;
+    strncpy(li->str, temp, PufferSize);
+    for (int i = 1; i*PufferSize < length; i++)
+    {
+        help = malloc(sizeof(strlist));
+        if (!help) return 5;
+        li->next = help;
+        li = li->next;
+        li->next = NULL;
+        strncpy(li->str, temp + i*PufferSize*sizeof(char), PufferSize);
+    }
     if (fclose(f)) return -1;
     return 0;
 }
@@ -61,22 +77,18 @@ int writefile(char* path, strlist* start)
     return 0;
 }
 
-int getline(char* destination, char* source, int size, int* timesRead)
+int getline(strlist* strl, int identifier, char* destination)
 {
-    if (*timesRead<0 || *timesRead > size / PufferSize) return -2;
-    if(*timesRead < size / PufferSize)
+    if (!strl||!destination) return -1;
+    struct _strlist* help = strl;
+    for (; identifier; identifier--)
     {
-     // *destination=(char*)malloc((PufferSize+1)*sizeof(char));
-     // if (*destination == NULL)
-     //     return -1;
-        strncpy(destination, source + *timesRead*PufferSize*sizeof(char), PufferSize);
-        (*timesRead)++;
-        return 0;
+        if (!help->next) return -2;
+        help = help->next;
     }
- // *destination=(char*)malloc((1+size-*timesRead*PufferSize)*sizeof(char));
-    strcpy(destination, source+*timesRead*PufferSize*sizeof(char));
-    (*timesRead)++;
-    return 1;
+    strncpy(destination, help->str, PufferSize);
+    if (help->next) return 1;
+    return 0;
 }
 struct _strlist* addtolist(strlist* start, char* buf)
 {
