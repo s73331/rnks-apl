@@ -342,6 +342,7 @@ int main(int argc, char *argv[])
         printReq(req, 1);
         tl = add_timer(tl, 1, req.SeNr);
         tv.tv_usec = (tl->timer)*TO;
+        fd_reset(&fd, ConnSocket);
         int s=select(0, &fd, 0, 0, &tv);
         if (!s) //timer expired
         {
@@ -381,7 +382,7 @@ int main(int argc, char *argv[])
 	{
         req.ReqType = ReqData;
         req.SeNr++;
-        if (req.SeNr == 3) req.SeNr = 4;
+        if (req.SeNr == 2) req.SeNr = 4;
         char buf[PufferSize+1];
         buf[PufferSize] = 0;
         int gl;
