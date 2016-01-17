@@ -313,7 +313,86 @@ int initClient(char *MCAddress, char *Port) {
 	return(0);
 }
 
-
+/*
+return:  
+         0 - success
+         1 - got last line
+         2 - didn't read file
+*/
+int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int lastData)
+{
+    if (toAnswer)
+    {
+        if (ans.AnswType == AnswHello)
+        {
+            req->ReqType = ReqData;
+            (*lastSeNr)++;
+            req->SeNr = *lastSeNr;
+            char buf[PufferSize + 1];
+            buf[PufferSize] = 0;
+            int gl;
+            gl = getline(strli, req->SeNr - 1, buf); //-1, as SeNo=0 is not data
+            if (gl < 0)
+            {
+                fprintf(stderr, "getting line failed with error code %i\nexiting...", gl);
+                exit(6);
+            }
+            strncpy(req->name, buf, PufferSize);
+            printReq(*req, 1);
+            *lastSeNr = req->SeNr;
+            return gl;
+        }
+        if (ans.AnswType == AnswNACK)
+        {
+            req->SeNr = ans.SeNo;
+            req->ReqType = ReqData;
+            char buf[PufferSize + 1];
+            buf[PufferSize] = 0;
+            int gl;
+            gl = getline(strli, req->SeNr - 1, buf); //-1, as SeNo=0 is not data
+            if (gl < 0)
+            {
+                fprintf(stderr, "getting line failed with error code %i\nexiting...", gl);
+                exit(6);
+            }
+            strncpy(req->name, buf, PufferSize);
+            printReq(*req, 1);
+            return gl;
+        }
+    }
+    else
+    {
+        if (req->SeNr == 0)
+        {
+            req->FlNr = 1;
+            req->ReqType = ReqHello;
+            printReq(*req, 1);
+            return 2;
+        }
+        if (lastData)
+        {
+            req->SeNr = *lastSeNr + 1;
+            req->ReqType = ReqClose;
+            return 2;
+        }
+        (*lastSeNr)++;
+        //req->SeNr = *lastSeNr;
+        req->SeNr++;
+        req->ReqType = ReqData;
+        char buf[PufferSize + 1];
+        buf[PufferSize] = 0;
+        int gl;
+        gl = getline(strli, req->SeNr - 1, buf); //-1, as SeNo=0 is not data
+        if (gl < 0)
+        {
+            fprintf(stderr, "getting line failed with error code %i\nrequested line: %i\nexiting...", gl, req->SeNr - 1);
+            exit(6);
+        }
+        strncpy(req->name, buf, PufferSize);
+        printReq(*req, 1);
+        return gl;
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -322,16 +401,20 @@ int main(int argc, char *argv[])
     int stay2 = 1;
     struct timeouts* tl=NULL;
     struct answer ans;
+    ans.SeNo = 0;
     int w;
     struct request req;
+    req.SeNr = 0;
     fd_set fd;
     struct timeval tv;
     tv.tv_sec = 0;
-    
+    strlist* strli = NULL;
+    int r;
+    int lastSeNr = 0;
+    int lastData = 0;
+
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
-    req.FlNr = 1;
-    req.ReqType = ReqHello;
-    req.SeNr = 0;
+    lastData=makeRequest(&req, ans, strli, 0, &lastSeNr, lastData);
     while (stay)
     {
         w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
@@ -339,7 +422,6 @@ int main(int argc, char *argv[])
             fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
             exit(1);
         }
-        printReq(req, 1);
         tl = add_timer(tl, 1, req.SeNr);
         tv.tv_usec = (tl->timer)*TO;
         fd_reset(&fd, ConnSocket);
@@ -370,91 +452,54 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ans.answType not AnswHello: %c\nexiting...", ans.AnswType);
         exit(4);
     }
-    strlist* strli = NULL;
-    int r;
     if (r=readfile(FILE_TO_READ, &strli))
     {
         fprintf(stderr, "reading file failed with error code: %i\nexiting...", r);
         exit(5);
     }
+    lastData=makeRequest(&req, ans, strli, 1, &lastSeNr, lastData);
     stay = 1;
     while(stay)
 	{
-        req.ReqType = ReqData;
-        req.SeNr++;
-        if (req.SeNr == 2) req.SeNr = 4;
-        char buf[PufferSize+1];
-        buf[PufferSize] = 0;
-        int gl;
-        gl = getline(strli, req.SeNr - 1, buf); //-1, as SeNo=0 is not data
-        if (gl > 0) stay = 0;
-        if (gl < 0)
-        {
-            fprintf(stderr, "getting line failed with error code %i\nexiting...",gl);
+        fd_reset(&fd, ConnSocket);
+        w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
+        if (w == SOCKET_ERROR) {
+            fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
             exit(6);
         }
-        strncpy(req.name, buf, PufferSize);
-        stay2 = 1;
-        while (stay2)
+        fd_reset(&fd, ConnSocket);
+        tl = add_timer(tl, 1, req.SeNr);
+        tv.tv_usec = (tl->timer)*TO;
+        int s = select(0, &fd, 0, 0, &tv);
+        if (!s) //timer expired
         {
-            fd_reset(&fd, ConnSocket);
-            w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
-            if (w == SOCKET_ERROR) {
-                fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
-                getchar();
-                exit(6);
-            }
-            else printReq(req, 1);
-            fd_reset(&fd, ConnSocket);
-            tl = add_timer(tl, 1, req.SeNr);
-            tv.tv_usec = (tl->timer)*TO;
-            int s = select(0, &fd, 0, 0, &tv);
-            if (!s) //timer expired
-            {
-                decrement_timer(tl);
-                tl=del_timer(tl, req.SeNr);
-                stay2 = 0;
-                continue;
-            }
-            if (s == SOCKET_ERROR)
-            {
-                fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
-                exit(7);
-            }
+            decrement_timer(tl);
             tl=del_timer(tl, req.SeNr);
-            recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-            if (recvcc == SOCKET_ERROR)
-            {
-                fprintf(stderr, "recvfrom() failed: error %d\n", WSAGetLastError());
-                exit(8);
-            }
-            printAns(ans, 0);
-            if (ans.AnswType != AnswNACK)
-            {
-                fprintf(stderr, "ans.answType not AnswNACK: %c\nexiting...", ans.AnswType);
-                exit(9);
-            }
-            req.ReqType = ReqData;
-            gl = getline(strli, ans.SeNo - 1, buf); //-1, as SeNo=0 is not data
-            if (gl > 0) stay = 0;
-            if (gl < 0)
-            {
-                fprintf(stderr, "getting line failed with error code %i\nexiting...", gl);
-                exit(6);
-            }
-            strncpy(req.name, buf, PufferSize);
-            int seqnr = req.SeNr;
-            req.SeNr = ans.SeNo;
-            w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
-            if (w == SOCKET_ERROR) {
-                fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
-                exit(5);
-            }
-            req.SeNr = seqnr;
+            if (lastData) break;
+            lastData = makeRequest(&req, ans, strli, 0, &lastSeNr, lastData);
+            continue;
         }
-	}
-    req.ReqType = ReqClose;
-    req.SeNr++;
+        if (s == SOCKET_ERROR)
+        {
+            fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
+            exit(7);
+        }
+        tl=del_timer(tl, req.SeNr);
+        recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
+        if (recvcc == SOCKET_ERROR)
+        {
+            fprintf(stderr, "recvfrom() failed: error %d\n", WSAGetLastError());
+            exit(8);
+        }
+        printAns(ans, 0);
+        if (ans.AnswType != AnswNACK)
+        {
+            fprintf(stderr, "ans.answType not AnswNACK: %c\nexiting...", ans.AnswType);
+            exit(9);
+        }
+        lastData=makeRequest(&req, ans, strli, 1, &lastSeNr, lastData);
+    }
+    lastData = makeRequest(&req, ans, strli, 0, &lastSeNr, lastData);
     stay = 1;
     while (stay)
     {
