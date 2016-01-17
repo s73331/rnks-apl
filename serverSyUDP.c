@@ -276,7 +276,7 @@ int main(int argc, char** argv) {
     char *server = DEFAULT_SERVER;
     char *filename = FILE_TO_WRITE;
     char* port = DEFAULT_PORT;
-    long int window_size = 1;
+    long int window_size = DEFAULT_WINDOW;
     //Parameter ueberpruefen
     if (argc > 1) {
         for (i = 1; i < argc; i++) {
