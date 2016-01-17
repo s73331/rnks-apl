@@ -392,6 +392,8 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
         strncpy(req->name, buf, PufferSize);
         return gl;
     }
+    fprintf(stderr, "reached illegal position in makeRequest()\nexiting...");
+    exit(1);
 }
 int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int* lastData, SOCKET ConnSocket)
 {
