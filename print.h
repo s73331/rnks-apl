@@ -9,5 +9,6 @@ void printAns(struct answer answ, int sent);
             1 - sent
             2 - added to cache
             3 - resolved from cache
+            4 - ignored
 */
 void printReq(struct request req, int flag);
