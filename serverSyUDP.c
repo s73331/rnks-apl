@@ -236,7 +236,7 @@ int exitServer() {
 	return(0);
 }
 
-struct answer *answreturn(struct request *reqPtr, int expectedSequence, int *window_size, int *drop_pack_sqnr)
+struct answer *answreturn(struct request *reqPtr, int expectedSequence)
 {
 	struct answer* answ = malloc(sizeof(answ)+1);
   //struct answer* answ = malloc(sizeof(answ)); brings up heap corruption when writing to answ->SeNo, gonna play safe
@@ -244,23 +244,23 @@ struct answer *answreturn(struct request *reqPtr, int expectedSequence, int *win
 	{
 	case ReqHello:
 		answ->AnswType = AnswHello;
-		answ->FlNr = reqPtr->FlNr;
 		answ->SeNo = reqPtr->SeNr;
-		(*window_size) = reqPtr->FlNr;
 		return answ;
 		break;
     case ReqClose:
+        if (expectedSequence < reqPtr->SeNr)
+        {
+            answ->AnswType = AnswNACK;
+            answ->SeNo = expectedSequence;
+            return answ;
+        }
         answ->AnswType = AnswClose;
-        answ->FlNr = reqPtr->FlNr;
         answ->SeNo = reqPtr->SeNr;
-        (*window_size) = reqPtr->FlNr;
         return answ;
         break;
     case ReqData:
         answ->AnswType = AnswNACK;
-        answ->FlNr = reqPtr->FlNr;
         answ->SeNo = expectedSequence;
-        (*window_size) = reqPtr->FlNr;
         return answ;
         break;
     default:
@@ -288,7 +288,7 @@ int main() {
         struct request *req = getRequest();
         if (req->SeNr > expectedSequence)
         {
-            ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
+            ans = answreturn(req, expectedSequence);
             sendAnswer(ans);
             if (req->ReqType == ReqData)
             {
@@ -304,7 +304,7 @@ int main() {
         }        
         if (req->ReqType == ReqHello)
         {
-            ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
+            ans = answreturn(req, expectedSequence);
             sendAnswer(ans);
             expectedSequence++;
             continue;
@@ -323,9 +323,9 @@ int main() {
             }
             continue;
         }
-        if (req->ReqType == ReqClose)
+        if (req->ReqType == ReqClose && !rc)
         {
-            ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
+            ans = answreturn(req, expectedSequence);
             sendAnswer(ans);
             stay = 0;
         }
