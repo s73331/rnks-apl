@@ -416,6 +416,7 @@ int recvfromw(SOCKET ConnSocket, char* buf, size_t len, int flags, struct sockad
         fprintf(stderr, "recvfrom() failed: error %d\n", WSAGetLastError());
         exit(1);
     }
+    printAns(*((struct answer*)buf), 0);
     return ret;
 }
 
@@ -460,9 +461,8 @@ int main(int argc, char *argv[])
         }
         stay = 0;
         tl = del_timer(tl, req.SeNr);
+        recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
     }
-    recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-    printAns(ans, 0);
     if (ans.AnswType != AnswHello)
     {
         fprintf(stderr, "ans.answType not AnswHello: %c\nexiting...", ans.AnswType);
@@ -505,7 +505,6 @@ int main(int argc, char *argv[])
         }
         tl=del_timer(tl, req.SeNr);
         recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-        printAns(ans, 0);
         if (ans.AnswType != AnswNACK)
         {
             fprintf(stderr, "ans.answType not AnswNACK: %c\nexiting...", ans.AnswType);
@@ -541,7 +540,6 @@ int main(int argc, char *argv[])
         stay = 0;
     }
     recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-    printAns(ans, 0);
     if (ans.AnswType != AnswClose)
     {
         fprintf(stderr, "ans.answType not AnswClose: %c\nexiting...", ans.AnswType);
