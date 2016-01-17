@@ -393,10 +393,9 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
         return gl;
     }
 }
-int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int* lastData, SOCKET ConnSocket, int makereq)
+int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int* lastData, SOCKET ConnSocket)
 {
-    int ret = 0;
-    if(makereq) ret = makeRequest(req, ans, strli, toAnswer, lastSeNr, lastData);
+    int ret = makeRequest(req, ans, strli, toAnswer, lastSeNr, lastData);
     if (NOSEND_ARRAY_SIZE > req->SeNr && NOSEND_DATA[req->SeNr])
     {
         printReq(*req, 4);
@@ -439,9 +438,9 @@ int main(int argc, char *argv[])
     strlist* strli = NULL;
     int lastSeNr = 0;
     int lastData = 0;
-
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
-    lastData+=sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, MAKE);
+
+    lastData+=sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket);
     stay = 1;
     while(stay)
 	{
@@ -453,7 +452,7 @@ int main(int argc, char *argv[])
         {
             decrement_timer(tl);
             tl=del_timer(tl, req.SeNr);
-            lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, MAKE);
+            lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket);
             continue;
         }
         if (s == SOCKET_ERROR)
@@ -468,10 +467,10 @@ int main(int argc, char *argv[])
         case AnswHello:
             if (readfilew(FILE_TO_READ, &strli))
                 fprintf(stderr, "closing file failed\ncontinuing...");
-            lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, MAKE);
+            lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket);
             break;
         case AnswNACK:
-            lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, MAKE);
+            lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket);
             continue;
         case AnswClose:
             stay = 0;
