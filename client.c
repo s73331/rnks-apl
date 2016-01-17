@@ -441,37 +441,7 @@ int main(int argc, char *argv[])
     int lastData = 0;
 
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
-    lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, MAKE);
-    while (stay)
-    {
-        tl = add_timer(tl, 1, req.SeNr);
-        tv.tv_usec = (tl->timer)*TO;
-        fd_reset(&fd, ConnSocket);
-        int s=select(0, &fd, 0, 0, &tv);
-        if (!s) //timer expired
-        {
-            decrement_timer(tl);
-            tl=del_timer(tl, req.SeNr);
-            sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, DONTMAKE);
-            continue;
-        }
-        if(s==SOCKET_ERROR)
-        {
-            fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
-            exit(2);
-        }
-        stay = 0;
-        tl = del_timer(tl, req.SeNr);
-        recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-        if (ans.AnswType != AnswHello)
-        {
-            fprintf(stderr, "ans.answType not AnswHello: %c\nexiting...", ans.AnswType);
-            exit(4);
-        }
-    }
-    if (readfilew(FILE_TO_READ, &strli))
-        fprintf(stderr, "closing file failed\ncontinuing...");        
-    lastData+=sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, MAKE);
+    lastData+=sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, MAKE);
     stay = 1;
     while(stay)
 	{
@@ -495,6 +465,11 @@ int main(int argc, char *argv[])
         recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
         switch (ans.AnswType)
         {
+        case AnswHello:
+            if (readfilew(FILE_TO_READ, &strli))
+                fprintf(stderr, "closing file failed\ncontinuing...");
+            lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, MAKE);
+            break;
         case AnswNACK:
             lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, MAKE);
             continue;
