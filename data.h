@@ -9,7 +9,7 @@
 #define MAX_SEQNR 2*MAX_WINDOW-1    /* maximum sequence number --> real maximum sequence number
                                        is 2 times of the choosen real window size!!*/
 #define MAX_BUFFER 2*MAX_WINDOW     // packets must be stored for retransmission
-
+#define PufferSize 256
 extern char *errorTable[];
 
 struct request {
@@ -19,7 +19,6 @@ struct request {
     #define ReqClose 'C'    // ReqClose
     long FlNr;              /* Data length (line of text) in Byte ; */
     unsigned long SeNr;     /* Sequence Number (== 0) beginn of file */
-    #define PufferSize 256
     char name[PufferSize];  // Data --> line of text
 };
 
@@ -41,5 +40,4 @@ typedef struct _strlist
 {
     char str[PufferSize];
     struct _strlist* next;
-    struct _strlist* prev;
 }strlist;
