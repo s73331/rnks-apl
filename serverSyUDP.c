@@ -275,7 +275,7 @@ int main(int argc, char** argv) {
     int i = 0;
     char *server = DEFAULT_SERVER;
     char *filename = FILE_TO_WRITE;
-    long int port = DEFAULT_PORT;
+    char* port = DEFAULT_PORT;
     long int window_size = 1;
     //Parameter ueberpruefen
     if (argc > 1) {
@@ -295,8 +295,7 @@ int main(int argc, char** argv) {
                 case 'p':			//Server Port
                     if (argv[i + 1]) {
                         if (argv[i + 1][0] != '-') {
-                            port = strtol(argv[++i], 0, 0); //argument 2 and 3 are optional
-                            if (port<0 || port>65535) Usage(argv[0]);
+                            port = argv[++i];
                             break;
                         }
                     }
