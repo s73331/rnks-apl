@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <string.h>
-#include <WinSock2.h>
+#include <Winsock2.h>
 #include <errno.h>
 #include <ctype.h>
 #include <tchar.h>
@@ -18,6 +18,8 @@
 #include "toUDP.h" //SAP to our protocol
 #include "config.h"
 #include "data.h"
+#include "timer.h"
+#include "sock.h"
 #pragma comment(lib, "Ws2_32.lib")	
 
 #define BUFLEN 512
@@ -182,7 +184,6 @@ getchar();
 //...
 }*/
 
-
 int initClient(char *MCAddress, char *Port) {
 
 
@@ -311,24 +312,51 @@ int initClient(char *MCAddress, char *Port) {
 
 	return(0);
 }
+
+
+
 int main(int argc, char *argv[])
 {
-    int nr = 0;
-	printf("Sender(Client)\n\n");
-	initClient(DEFAULT_SERVER, DEFAULT_PORT);
+    printf("Sender(Client)\n\n");
+    int stay = 1;
+    struct timeouts* tl=NULL;
+    int seqNr = 0;
+    struct answer ans;
     int w;
     struct request req;
-    req.ReqType = ReqHello;
-    req.SeNr = 0;
+    fd_set fd;
+    struct timeval tv;
+    tv.tv_sec = 0;
+
+	initClient(DEFAULT_SERVER, DEFAULT_PORT);
     req.FlNr = 1;
-    w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
-    printReq(req, 1);
-    if (w == SOCKET_ERROR) {
-        fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
-        exit(1);
+    req.ReqType = ReqHello;
+    req.SeNr = seqNr;
+    while (stay)
+    {
+        fd_reset(&fd, ConnSocket);
+        w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
+        if (w == SOCKET_ERROR) {
+            fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
+            exit(1);
+        }
+        tl=add_timer(tl, 1, seqNr);
+        printReq(req, 1);
+        tv.tv_usec = (tl->timer)*TIMEOUT_INT*1000; //TIMEOUT_INT in milli, tv_usec in micro
+        int s=select(0, &fd, 0, 0, &tv);
+        if (!s) //timer expired
+        {
+            decrement_timer(tl);
+            tl=del_timer(tl, seqNr);
+            continue;
+        }
+        if(s==SOCKET_ERROR)
+        {
+            fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
+            exit(1);
+        }
+        stay = 0;
     }
-    nr++;
-    struct answer ans;
     int recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
     if (recvcc == SOCKET_ERROR)
     {
@@ -351,7 +379,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "reading file failed with error code: %i\nexiting...", r);
         exit(1);
     }
-    int stay = 1;
+    stay = 1;
     while(stay)
 	{
 		//int*  p_nr = (int*)sendString;
@@ -376,7 +404,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
 		}
 		printReq(req, 1);
-        nr++;
+        seqNr++;
 	//  fflush(stdin);
 	//  getchar();
 	}
