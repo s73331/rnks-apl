@@ -16,7 +16,7 @@
 #include "manipulation.h"
 #pragma comment(lib, "Ws2_32.lib")				// necessary for the WinSock2 lib
 
-#define BUFLEN 512	
+#define BUFLEN 512
 struct request req;
 
 /****************************************************/
@@ -274,15 +274,21 @@ int main() {
     while (stay)
     {
         struct request *req = getRequest();
+        if (IGNORE_DATA[req->SeNr])
+        {
+            printReq(*req, 4);
+            IGNORE_DATA[req->SeNr]--;
+            continue;
+        }
         if (req->SeNr > expectedSequence)
         {
+            printReq(*req, 2);
             ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
             cache.SeNr = req->SeNr;
             cache.ReqType = req->ReqType;
             strncpy(cache.name, req->name, PufferSize);
             cacheUsed = 1;
-            printReq(*req, 2);
             continue;
         }
         if (req->SeNr < expectedSequence) //shit happens
@@ -292,12 +298,6 @@ int main() {
         }        
         if (req->ReqType == ReqHello)
         {
-            if (ignoredHellos < IGNORE_HELLO)
-            {
-                printf("ignoring packet\n");
-                ignoredHellos++;
-                continue;
-            }
             ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
             expectedSequence++;
@@ -305,12 +305,6 @@ int main() {
         }
         if (req->ReqType == ReqData)
         {
-            if (kek && req->SeNr==4)
-            {
-                printf("ignoring packet\n");
-                kek--;
-                continue;
-            }
             strl=addtolist(strl, req->name);
             expectedSequence++;
             if (cacheUsed&&expectedSequence==cache.SeNr)
@@ -324,12 +318,6 @@ int main() {
         }
         if (req->ReqType == ReqClose)
         {
-            if (ignoredCloses<IGNORE_CLOSE)
-            {
-                printf("ignoring packet\n");
-                ignoredCloses++;
-                continue;
-            }
             ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
             stay = 0;
