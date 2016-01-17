@@ -4,7 +4,7 @@
 #include <string.h>
 #include "file.h"
 #include "data.h"
-int readfile(char* path, strlist** start)
+int readfile(char* path, struct _strlist** start)
 {
 	FILE* f = fopen(path, "r");
 	if (f == NULL) return 1;
@@ -24,6 +24,7 @@ int readfile(char* path, strlist** start)
         else return 5;
     (*temp) = 0;
     char* buf = malloc(sizeof(char)*(fsize + 1));
+    (*buf) = 0;
     int length = 0;
     while (!feof(f))
     {
@@ -42,7 +43,7 @@ int readfile(char* path, strlist** start)
     }
     strlist* li;
     strlist* help;
-    li = malloc(sizeof(li));
+    li = malloc(sizeof(strlist));
     if (li==NULL) return 5;
     li->next = NULL;
     *start = li;
@@ -87,8 +88,8 @@ int getline(strlist* strl, int identifier, char* destination)
         help = help->next;
     }
     strncpy(destination, help->str, PufferSize);
-    if (help->next) return 1;
-    return 0;
+    if (help->next) return 0;
+    return 1;
 }
 struct _strlist* addtolist(strlist* start, char* buf)
 {

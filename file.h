@@ -24,8 +24,8 @@ int readfile(char* path, struct _strlist** start);
 int writefile(char* path, struct _strlist* string);
 
 /*  returns:
-             1 success
-             0 returned string
+             1 got last string
+             0 got string
             -1 passed NULL as strl or destination
             -2 identifier too high
     Returns a line as long as PufferSize in data.h or, if the source is ending, the last string.
