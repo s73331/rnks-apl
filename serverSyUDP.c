@@ -13,6 +13,7 @@
 #include "print.h"
 #include "file.h"
 #include "local.h"
+#include "manipulation.h"
 #pragma comment(lib, "Ws2_32.lib")				// necessary for the WinSock2 lib
 
 #define BUFLEN 512	
@@ -258,16 +259,25 @@ int main() {
     int expectedSequence = 0;
     //int c, v;
     int stay = 1;
+    int ignoredHellos = 0;
+    int ignoredCloses = 0;
     while (stay)
     {
         struct request *req = getRequest();
         if (req->SeNr != expectedSequence)
         {
             //NACK expected Sequence
+            fprintf(stderr, "expected no %i, got no %i", expectedSequence, req->SeNr);
             continue;
         }
         if (req->ReqType == ReqHello)
         {
+            if (ignoredHellos < IGNORE_HELLO)
+            {
+                printf("ignoring packet\n");
+                ignoredHellos++;
+                continue;
+            }
             ans = answreturn(req, &sqnr_counter, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
             expectedSequence++;
@@ -281,6 +291,12 @@ int main() {
         }
         if (req->ReqType == ReqClose)
         {
+            if (ignoredCloses<IGNORE_CLOSE)
+            {
+                printf("ignoring packet\n");
+                ignoredCloses++;
+                continue;
+            }
             ans = answreturn(req, &sqnr_counter, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
             stay = 0;
@@ -288,8 +304,6 @@ int main() {
     }
     int w;
     if (w=writefile(filename, strl)) fprintf(stderr, "writefile() returned %i", w);
-	fflush(stdin);
-	getchar();
 	return 0;
 }
 /*
