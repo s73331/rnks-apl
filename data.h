@@ -12,6 +12,11 @@
 #define PufferSize 256
 extern char *errorTable[];
 
+#define MAKE     1
+#define DONTMAKE 0
+#define ANSWER   1
+#define INITIAL  0
+
 struct request {
     unsigned char ReqType;
     #define ReqHello 'H'    // ReqHello
