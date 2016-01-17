@@ -37,4 +37,4 @@ int getline(char* destination, char* source, int size, int* timesRead);
 /*
     
 */
-void addtolist(struct _strlist* start, struct _strlist* last, char* buf);
+struct _strlist* addtolist(struct _strlist* start, char* buf);

@@ -78,7 +78,7 @@ int getline(char* destination, char* source, int size, int* timesRead)
     (*timesRead)++;
     return 1;
 }
-void addtolist(strlist* start, strlist* last, char* buf)
+struct _strlist* addtolist(strlist* start, char* buf)
 {
     strlist* next = (strlist*)malloc(sizeof(strlist));
     if (next == NULL)
@@ -90,12 +90,14 @@ void addtolist(strlist* start, strlist* last, char* buf)
     strncpy(next->str, buf, PufferSize);
     if (start == NULL)
     {
-        last = next;
         start = next;
+        return start;
     }
-    else
+    strlist* help=start;
+    while(help->next!=NULL)
     {
-        last->next = next;
-        last = next;
+        help = help->next;
     }
+    help->next = next;
+    return start;
 }
