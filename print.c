@@ -22,7 +22,9 @@ void printReq(struct request req, int flag)
         break;
     case 3: printf("Uncached");
         break;
-    case 4: printf("Ignored\t");
+    case 4: printf("Manipulating");
+        break;
+    case 5: printf("Ignoring");
         break;
     default:
         fprintf(stderr, "passed invalid flag to printReq(): %i", flag);

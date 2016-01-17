@@ -380,8 +380,13 @@ int main(int argc, char** argv) {
             }
             continue;
         }
-        if (req->ReqType == ReqClose && !rc)
+        if (req->ReqType == ReqClose)
         {
+            if (rc)
+            {
+                printReq(*req, 5);
+                continue;
+            }
             ans = answreturn(req, expectedSequence);
             sendAnswer(ans);
             stay = 0;
