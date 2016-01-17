@@ -440,7 +440,7 @@ int main(int argc, char *argv[])
     int lastData = 0;
 
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
-    lastData=sendRequest(&req, ans, strli, 0, &lastSeNr, lastData, ConnSocket, MAKE);
+    lastData = sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, MAKE);
     while (stay)
     {
         tl = add_timer(tl, 1, req.SeNr);
@@ -462,11 +462,11 @@ int main(int argc, char *argv[])
         stay = 0;
         tl = del_timer(tl, req.SeNr);
         recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
-    }
-    if (ans.AnswType != AnswHello)
-    {
-        fprintf(stderr, "ans.answType not AnswHello: %c\nexiting...", ans.AnswType);
-        exit(4);
+        if (ans.AnswType != AnswHello)
+        {
+            fprintf(stderr, "ans.answType not AnswHello: %c\nexiting...", ans.AnswType);
+            exit(4);
+        }
     }
     if (r=readfile(FILE_TO_READ, &strli))
     {
