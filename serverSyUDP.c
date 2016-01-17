@@ -264,18 +264,26 @@ int main() {
     strlist* strl = NULL;
 	int window_size = 1, drop_pack_sqnr, drop = 0;
     unsigned long expectedSequence = 0;
+    struct request cache;
+    int cacheUsed = 0;
     //int c, v;
     int stay = 1;
     int ignoredHellos = 0;
     int ignoredCloses = 0;
+    int kek = 1;
     while (stay)
     {
         struct request *req = getRequest();
         if (req->SeNr > expectedSequence)
         {
             ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
-            fprintf(stderr, "expected no %i, got no %i\n", expectedSequence, req->SeNr);
             sendAnswer(ans);
+            fprintf(stderr, "expected no %i, got no %i, saving\n", expectedSequence, req->SeNr);
+            cache.SeNr = req->SeNr;
+            cache.ReqType = req->ReqType;
+            strncpy(cache.name, req->name, PufferSize);
+            cacheUsed = 1;
+            printReq(*req, 2);
             continue;
         }
         if (req->SeNr < expectedSequence) //shit happens
@@ -298,8 +306,21 @@ int main() {
         }
         if (req->ReqType == ReqData)
         {
+            if (kek && req->SeNr==4)
+            {
+                printf("ignoring packet\n");
+                kek--;
+                continue;
+            }
             strl=addtolist(strl, req->name);
             expectedSequence++;
+            if (cacheUsed&&expectedSequence==cache.SeNr)
+            {
+                strl = addtolist(strl, cache.name);
+                expectedSequence++;
+                cacheUsed = 0;
+                printReq(cache, 3);
+            }
             continue;
         }
         if (req->ReqType == ReqClose)
