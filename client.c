@@ -318,7 +318,6 @@ int initClient(char *MCAddress, char *Port) {
 return:  
          0 - success
          1 - got last line
-         2 - didn't read file
 */
 int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int lastData)
 {
@@ -365,14 +364,14 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
         {
             req->FlNr = 1;
             req->ReqType = ReqHello;
-            return 2;
+            return 0;
         }
         if (lastData)
         {
             (*lastSeNr)++;
             req->SeNr = *lastSeNr;
             req->ReqType = ReqClose;
-            return 2;
+            return 0;
         }
         (*lastSeNr)++;
         req->SeNr = *lastSeNr;
@@ -435,12 +434,11 @@ int main(int argc, char *argv[])
     struct timeval tv;
     tv.tv_sec = 0;
     strlist* strli = NULL;
-    int r;
     int lastSeNr = 0;
     int lastData = 0;
 
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
-    lastData = sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, MAKE);
+    lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, MAKE);
     while (stay)
     {
         tl = add_timer(tl, 1, req.SeNr);
@@ -470,12 +468,10 @@ int main(int argc, char *argv[])
     }
     if (readfilew(FILE_TO_READ, &strli))
         fprintf(stderr, "closing file failed\ncontinuing...");        
-    lastData=makeRequest(&req, ans, strli, ANSWER, &lastSeNr, lastData);
+    lastData+=sendRequest(&req, ans, strli, ANSWER, &lastSeNr, lastData, ConnSocket, MAKE);
     stay = 1;
     while(stay)
 	{
-        fd_reset(&fd, ConnSocket);
-        sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, DONTMAKE);
         fd_reset(&fd, ConnSocket);
         tl = add_timer(tl, 1, req.SeNr);
         tv.tv_usec = (tl->timer)*TO;
@@ -485,7 +481,7 @@ int main(int argc, char *argv[])
             decrement_timer(tl);
             tl=del_timer(tl, req.SeNr);
             if (lastData) break;
-            lastData = makeRequest(&req, ans, strli, 0, &lastSeNr, lastData);
+            lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, MAKE);
             continue;
         }
         if (s == SOCKET_ERROR)
@@ -500,9 +496,9 @@ int main(int argc, char *argv[])
             fprintf(stderr, "ans.answType not AnswNACK: %c\nexiting...", ans.AnswType);
             exit(9);
         }
-        lastData=makeRequest(&req, ans, strli, 1, &lastSeNr, lastData);
+        lastData+=sendRequest(&req, ans, strli, 1, &lastSeNr, lastData, ConnSocket, MAKE);
     }
-    lastData = makeRequest(&req, ans, strli, 0, &lastSeNr, lastData);
+    lastData += makeRequest(&req, ans, strli, 0, &lastSeNr, lastData);
     stay = 1;
     while (stay)
     {
