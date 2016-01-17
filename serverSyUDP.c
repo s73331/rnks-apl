@@ -15,6 +15,8 @@
 #include "local.h"
 #include "manipulation.h"
 #include "cache.h"
+#include "sock.h"
+#include "timer.h"
 
 #pragma comment(lib, "Ws2_32.lib")				// necessary for the WinSock2 lib
 
@@ -280,7 +282,7 @@ int main(int argc, char** argv) {
     //Parameter ueberpruefen
     if (argc > 1) {
         for (i = 1; i < argc; i++) {
-            if ((argv[i][0] == '0')||((argv[i][0] == '/'))&&(argv[i][1] != 0)&&(argv[i][2] == 0))
+            if ((argv[i][0] == '-')||((argv[i][0] == '/'))&&(argv[i][1] != 0)&&(argv[i][2] == 0))
             {
                 switch (tolower(argv[i][1])) {
                 case 'a':			//Server Address
@@ -331,23 +333,50 @@ int main(int argc, char** argv) {
         }
     }
     initServer(server, port);
-	struct answer *ans;
-    strlist* strl = NULL;
+    struct answer *ans;
     unsigned long expectedSequence = 0;
-    cache* rc = NULL;
-    int cacheUsed = 0;
-    //int c, v, drop_pack_sqnr, drop;
+    struct timeouts* tl = NULL;         //struct to manage timeouts
+    strlist* strl = NULL;               //to store strings of packets in order
+    cache* rc = NULL;                   //to store packets not in order
     int stay = 1;
-    int ignoredHellos = 0;
-    int ignoredCloses = 0;
-    while (stay)
+    int s;
+    struct request *req;
+    struct timeval tv;                  //struct for select, if timeout has passed
+    tv.tv_sec = 0;
+    fd_set fd;                          //struct for select, if one of the sockets is ready for work
+    req = getRequest();
+    if (req->ReqType != ReqHello)
     {
-        struct request *req = getRequest();
+        fprintf(stderr, "expected ReqHello\nexiting...");
+        exit(1);
+    }
+    ans = answreturn(req, expectedSequence);
+    sendAnswer(ans);
+    expectedSequence++;
+    while (stay)
+    {   
+        fd_reset(&fd, ConnSocket);                  //add ConnSocket to struct, needs to be redone before every select
+        tl = add_timer(tl, 1, req->SeNr);
+        tv.tv_usec = (tl->timer)*TO * 3;
+        s = select(0, &fd, 0, 0, &tv);              //if socket is ready or timer expired 
+        if (!s) //timer expired
+        {
+            tl = del_timer(tl, req->SeNr, FALSE);
+            ans = answreturn(req, expectedSequence);
+            sendAnswer(ans);
+            continue;
+        }
+        if (s == SOCKET_ERROR)
+        {
+            fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
+            exit(7);
+        }
+        req = getRequest();
         if (req->SeNr > expectedSequence)
         {
             if (req->ReqType == ReqData)
             {
-                insert(&rc, req);
+                insert(&rc, req);       //put packet in cache
                 printReq(*req, 2);
             }
             ans = answreturn(req, expectedSequence);
@@ -358,38 +387,30 @@ int main(int argc, char** argv) {
         {
             fprintf(stderr, "expected no %i, got no %i\n", expectedSequence, req->SeNr);
             continue;
-        }        
-        if (req->ReqType == ReqHello)
-        {
-            ans = answreturn(req, expectedSequence);
-            sendAnswer(ans);
-            expectedSequence++;
-            continue;
         }
         if (req->ReqType == ReqData)
         {
-            strl=addtolist(strl, req->name);
+            strl = addtolist(strl, req->name);            //store string of packet in strlist
             expectedSequence++;
-            while (rc && peek(rc)==expectedSequence)
+            while (rc && peek(rc) == expectedSequence)    //if any element is in cache and the first one is our expected 
             {
-                cache* ca = get(&rc);
-                strl = addtolist(strl, ca->req.name);
+                cache* ca = get(&rc);                   // get it out
+                strl = addtolist(strl, ca->req.name);   // and store its string
                 expectedSequence++;
-                cacheUsed--;
                 printReq(ca->req, 3);
             }
             continue;
         }
         if (req->ReqType == ReqClose)
         {
-            if (rc)
+            if (rc)                                     // if we're still missing packets
             {
                 printReq(*req, 5);
-                continue;
+                continue;                               // continue sending a NACK
             }
-            ans = answreturn(req, expectedSequence);
+            ans = answreturn(req, expectedSequence);    // else send a CloseACK
             sendAnswer(ans);
-            stay = 0;
+            stay = 0;                                   // get out of loop
         }
     }
     int w;

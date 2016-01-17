@@ -16,13 +16,14 @@ struct timeouts* add_timer(struct timeouts *list, unsigned int timer_val, unsign
 /*
     Removes the timer with the given seq_nr.
     If there is no timer with the given seq_nr, nothing happens.
+    If addToOther is set, the first timer timer_val is added to the next, if there is one.
 
     return: 
             0       if list is NULL
             list    otherwise
         NOTE: list can be NULL
 */
-struct timeouts* del_timer(struct timeouts *list, unsigned long seq_nr);
+struct timeouts* del_timer(struct timeouts *list, unsigned long seq_nr, int addToOther);
 
 /*
     Decrements list->timer by one.

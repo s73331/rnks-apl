@@ -331,7 +331,7 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
             char buf[PufferSize + 1];
             buf[PufferSize] = 0;
             int gl;
-            gl = getline(strli, req->SeNr - 1, buf); //-1, as SeNo=0 is not data
+            gl = getline(strli, req->SeNr - 1, buf); //-1, as SeNr=0 is not data
             if (gl < 0)
             {
                 fprintf(stderr, "getting line failed with error code %i\nexiting...", gl);
@@ -343,6 +343,20 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
         }
         if (ans.AnswType == AnswNACK)
         {
+            if (*lastData)
+            {
+                if (*lastData == 1)
+                {
+                    (*lastData)++;
+                    (*lastSeNr)++;
+                }
+                if (ans.SeNo == *lastSeNr)
+                {
+                    req->ReqType = ReqClose;
+                    req->SeNr = *lastSeNr;
+                    return 0;
+                }
+            }
             req->SeNr = ans.SeNo;
             req->ReqType = ReqData;
             char buf[PufferSize + 1];
@@ -445,23 +459,26 @@ int main(int argc, char *argv[])
     int stay = 1;
     while(stay)
 	{
-        fd_reset(&fd, ConnSocket);
-        tl = add_timer(tl, 1, req.SeNr);
-        tv.tv_usec = (tl->timer)*TO;
-        int s = select(0, &fd, 0, 0, &tv);
-        if (!s) //timer expired
+        if (req.ReqType != ReqClose) // the only time when we're truly waiting
         {
-            decrement_timer(tl);
-            tl=del_timer(tl, req.SeNr);
-            lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket);
-            continue;
+            fd_reset(&fd, ConnSocket);
+            tl = add_timer(tl, 1, req.SeNr);
+            tv.tv_usec = (tl->timer)*TO;
+            int s = select(0, &fd, 0, 0, &tv);
+            if (!s) //timer expired
+            {
+                decrement_timer(tl);
+                tl = del_timer(tl, req.SeNr, FALSE);
+                lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket);
+                continue;
+            }
+            if (s == SOCKET_ERROR)
+            {
+                fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
+                exit(7);
+            }
+            tl = del_timer(tl, req.SeNr, TRUE);
         }
-        if (s == SOCKET_ERROR)
-        {
-            fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
-            exit(7);
-        }
-        tl=del_timer(tl, req.SeNr);
         recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
         switch (ans.AnswType)
         {

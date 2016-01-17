@@ -51,7 +51,7 @@ struct timeouts* add_timer(struct timeouts *list, unsigned int timer_val, unsign
     #endif
     return list;
 }
-struct timeouts* del_timer(struct timeouts *list, unsigned long seq_nr)
+struct timeouts* del_timer(struct timeouts *list, unsigned long seq_nr, int addToOther)
 {
     struct timeouts *help,*helper=list;
     if (list== NULL) return NULL;
@@ -60,7 +60,7 @@ struct timeouts* del_timer(struct timeouts *list, unsigned long seq_nr)
         list = list->next;
         // as the timer values are relative to each other the
         // next element‘s timer must be the sum of deleted element‘s timer and its own timer
-        if (list != NULL) list->timer+= help->timer;
+        if (list != NULL && addToOther) list->timer+= help->timer;
     }
     else{
         help = helper->next;
@@ -107,4 +107,3 @@ int decrement_timer(struct timeouts *list) {
     if (list->timer) return 1;
     else return 0;
 }
-
