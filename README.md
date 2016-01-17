@@ -1,6 +1,7 @@
 # rnks-apl  
-um das local.h nicht herumschwirren zu haben
+um das local.h und manipulation.h nicht herumschwirren zu haben
 git update-index --assume-unchanged local.h
+git update-index --assume-unchanged manipulation.h
 
 ##Notizen aus letzter Vorlesung vor Weihnachten  
 ####Sender
