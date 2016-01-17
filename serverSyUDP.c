@@ -15,6 +15,7 @@
 #include "local.h"
 #include "manipulation.h"
 #include "cache.h"
+
 #pragma comment(lib, "Ws2_32.lib")				// necessary for the WinSock2 lib
 
 #define BUFLEN 512
@@ -237,9 +238,9 @@ int exitServer() {
 
 struct answer *answreturn(struct request *reqPtr, int expectedSequence, int *window_size, int *drop_pack_sqnr)
 {
-	struct answer* answ =malloc(sizeof(answ));
-
-	switch (reqPtr->ReqType)
+	struct answer* answ = malloc(sizeof(answ)+1);
+  //struct answer* answ = malloc(sizeof(answ)); brings up heap corruption when writing to answ->SeNo, gonna play safe
+    switch (reqPtr->ReqType)
 	{
 	case ReqHello:
 		answ->AnswType = AnswHello;
@@ -282,16 +283,18 @@ int main() {
     int stay = 1;
     int ignoredHellos = 0;
     int ignoredCloses = 0;
-    int kek = 1;
     while (stay)
     {
         struct request *req = getRequest();
         if (req->SeNr > expectedSequence)
         {
-            printReq(*req, 2);
             ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
-            insert(&rc, req);
+            if (req->ReqType == ReqData)
+            {
+                insert(&rc, req);
+                printReq(*req, 2);
+            }
             continue;
         }
         if (req->SeNr < expectedSequence) //shit happens
@@ -329,7 +332,7 @@ int main() {
     }
     int w;
     if (w=writefile(filename, strl)) fprintf(stderr, "writefile() returned %i", w);
-	return 0;
+    return 0;
 }
 /*
 int main3(int argc, char *argv[])
