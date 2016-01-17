@@ -14,6 +14,7 @@
 #include "file.h"
 #include "local.h"
 #include "manipulation.h"
+#include "cache.h"
 #pragma comment(lib, "Ws2_32.lib")				// necessary for the WinSock2 lib
 
 #define BUFLEN 512
@@ -176,21 +177,32 @@ struct request *getRequest() {
 	//static long seq_number = 0;  //expected seq_number in byte
 	int recvcc;		     /*Length of received Message */
 	int remoteAddrSize = sizeof(struct sockaddr_in6);
-
+    int stay = 1;
 	/* Receive a message from a socket */
-	recvcc = recvfrom(ConnSocket, (char*)&req, sizeof(req), 0, (struct sockaddr *) resultMulticastAddress, &remoteAddrSize);
-	if (recvcc == SOCKET_ERROR) {
-		fprintf(stderr, "recv() failed: error %d\n", WSAGetLastError());
-		closesocket(ConnSocket);
-		WSACleanup();
-		exit(-3);
-	}
-	if (recvcc == 0) {
-		printf("Client closed connection\n");
-		closesocket(ConnSocket);
-		WSACleanup();
-		exit(-6);
-	}
+    while (stay)
+    {
+        stay = 0;
+        recvcc = recvfrom(ConnSocket, (char*)&req, sizeof(req), 0, (struct sockaddr *) resultMulticastAddress, &remoteAddrSize);
+        if (recvcc == SOCKET_ERROR) {
+            fprintf(stderr, "recv() failed: error %d\n", WSAGetLastError());
+            closesocket(ConnSocket);
+            WSACleanup();
+            exit(-3);
+        }
+        if (recvcc == 0) {
+            printf("Client closed connection\n");
+            closesocket(ConnSocket);
+            WSACleanup();
+            exit(-6);
+        }
+        if (IGNORE_ARRAY_SIZE > req.SeNr && IGNORE_DATA[req.SeNr])
+        {
+            printReq(req, 4);
+            IGNORE_DATA[req.SeNr]--;
+            stay = 1;
+            continue;
+        }
+    }
     printReq(req, 0);
 	return(&req);
 }
@@ -264,7 +276,7 @@ int main() {
     strlist* strl = NULL;
 	int window_size = 1, drop_pack_sqnr, drop = 0;
     unsigned long expectedSequence = 0;
-    struct request cache;
+    cache* rc = NULL;
     int cacheUsed = 0;
     //int c, v;
     int stay = 1;
@@ -274,21 +286,12 @@ int main() {
     while (stay)
     {
         struct request *req = getRequest();
-        if (IGNORE_ARRAY_SIZE>req->SeNr && IGNORE_DATA[req->SeNr])
-        {
-            printReq(*req, 4);
-            IGNORE_DATA[req->SeNr]--;
-            continue;
-        }
         if (req->SeNr > expectedSequence)
         {
             printReq(*req, 2);
             ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
-            cache.SeNr = req->SeNr;
-            cache.ReqType = req->ReqType;
-            strncpy(cache.name, req->name, PufferSize);
-            cacheUsed = 1;
+            insert(&rc, req);
             continue;
         }
         if (req->SeNr < expectedSequence) //shit happens
@@ -307,12 +310,13 @@ int main() {
         {
             strl=addtolist(strl, req->name);
             expectedSequence++;
-            if (cacheUsed && expectedSequence==cache.SeNr)
+            while (rc && peek(rc)==expectedSequence)
             {
-                strl = addtolist(strl, cache.name);
+                cache* ca = get(&rc);
+                strl = addtolist(strl, ca->req.name);
                 expectedSequence++;
-                cacheUsed = 0;
-                printReq(cache, 3);
+                cacheUsed--;
+                printReq(ca->req, 3);
             }
             continue;
         }
