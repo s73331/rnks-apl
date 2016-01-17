@@ -1,7 +1,9 @@
 /* Data Declarations */
 /* for Client and Server */
 
+
 #define TIMEOUT_INT 300             // in Milliseconds
+#define TO TIMEOUT_INT*1000         // in Microseconds
 #define TIMEOUT 3                   // must be a multiple of TIMEOUT_INT
 #define MAX_WINDOW 10               // maximum windows size
 #define MAX_SEQNR 2*MAX_WINDOW-1    /* maximum sequence number --> real maximum sequence number
