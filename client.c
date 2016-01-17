@@ -427,8 +427,6 @@ int recvfromw(SOCKET ConnSocket, char* buf, size_t len, int flags, struct sockad
 int main(int argc, char *argv[])
 {
     printf("Sender(Client)\n\n");
-    int stay = 1;
-    int stay2 = 1;
     struct timeouts* tl=NULL;
     struct answer ans;
     ans.SeNo = 0;
@@ -440,10 +438,11 @@ int main(int argc, char *argv[])
     strlist* strli = NULL;
     int lastSeNr = 0;
     int lastData = 0;
+    int HelloAckRecvd = 0;
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
 
     lastData+=sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket);
-    stay = 1;
+    int stay = 1;
     while(stay)
 	{
         fd_reset(&fd, ConnSocket);
@@ -466,20 +465,26 @@ int main(int argc, char *argv[])
         recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
         switch (ans.AnswType)
         {
-        case AnswHello:
-            if (readfilew(FILE_TO_READ, &strli))
-                fprintf(stderr, "closing file failed\ncontinuing...");
-            lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket);
-            break;
-        case AnswNACK:
-            lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket);
-            continue;
-        case AnswClose:
-            stay = 0;
-            continue;
-        default:
-            fprintf(stderr, "not recognized Answ\nexiting");
-            exit(1);
+            case AnswHello:
+                if (HelloAckRecvd)
+                {
+                    fprintf(stderr, "Received another HelloACK\ncontinuing...\n");
+                    continue;
+                }
+
+                if (readfilew(FILE_TO_READ, &strli))
+                    fprintf(stderr, "closing file failed\ncontinuing...\n");
+                lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket);
+                break;
+            case AnswNACK:
+                lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket);
+                continue;
+            case AnswClose:
+                stay = 0;
+                continue;
+            default:
+                fprintf(stderr, "not recognized Answ\nexiting\n");
+                exit(1);
         }
     }
 	closesocket(ConnSocket);
