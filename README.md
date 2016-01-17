@@ -9,8 +9,9 @@ beliebig viele Hellos gehen verloren, Client schickt alle 300ms bis HelloACK ank
 Server schickt HelloACK  
 Client bekommt HelloACK, liest File und schickt Daten(1)  
 Client schickt alle 300ms Daten(n), wenn kein NACK kommt  
+Server speichert Paket, das nicht reihenfolgetreu ist  
 Bei NACK schickt der Client das betreffende Paket nochmal.  
-Server speichert übergelaufene Pakete nicht! TODO  
+Server ordnet Paket wieder ein  
 Client schickt alle 300ms Close, bis CloseAck kommt.  
 Server schickt CloseACK  
 Server printet ins file  
