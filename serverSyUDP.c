@@ -223,7 +223,7 @@ int exitServer() {
 	return(0);
 }
 
-struct answer *answreturn(struct request *reqPtr, int *sqnr_counter, int *window_size, int *drop_pack_sqnr)
+struct answer *answreturn(struct request *reqPtr, int expectedSequence, int *window_size, int *drop_pack_sqnr)
 {
 	struct answer* answ =malloc(sizeof(answ));
 
@@ -234,16 +234,23 @@ struct answer *answreturn(struct request *reqPtr, int *sqnr_counter, int *window
 		answ->FlNr = reqPtr->FlNr;
 		answ->SeNo = reqPtr->SeNr;
 		(*window_size) = reqPtr->FlNr;
-		return(answ);
+		return answ;
 		break;
     case ReqClose:
         answ->AnswType = AnswClose;
         answ->FlNr = reqPtr->FlNr;
         answ->SeNo = reqPtr->SeNr;
         (*window_size) = reqPtr->FlNr;
-        return(answ);
+        return answ;
         break;
-	default:
+    case ReqData:
+        answ->AnswType = AnswNACK;
+        answ->FlNr = reqPtr->FlNr;
+        answ->SeNo = expectedSequence;
+        (*window_size) = reqPtr->FlNr;
+        return answ;
+        break;
+    default:
 		printf("default");
         return NULL;
 		break;
@@ -255,8 +262,8 @@ int main() {
 	initServer(DEFAULT_SERVER, DEFAULT_PORT);
 	struct answer *ans;
     strlist* strl = NULL;
-	int sqnr_counter = 1, window_size = 1, drop_pack_sqnr, drop = 0;
-    int expectedSequence = 0;
+	int window_size = 1, drop_pack_sqnr, drop = 0;
+    unsigned long expectedSequence = 0;
     //int c, v;
     int stay = 1;
     int ignoredHellos = 0;
@@ -264,12 +271,18 @@ int main() {
     while (stay)
     {
         struct request *req = getRequest();
-        if (req->SeNr != expectedSequence)
+        if (req->SeNr > expectedSequence)
         {
-            //NACK expected Sequence
-            fprintf(stderr, "expected no %i, got no %i", expectedSequence, req->SeNr);
+            ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
+            fprintf(stderr, "expected no %i, got no %i\n", expectedSequence, req->SeNr);
+            sendAnswer(ans);
             continue;
         }
+        if (req->SeNr < expectedSequence) //shit happens
+        {
+            fprintf(stderr, "expected no %i, got no %i\n", expectedSequence, req->SeNr);
+            continue;
+        }        
         if (req->ReqType == ReqHello)
         {
             if (ignoredHellos < IGNORE_HELLO)
@@ -278,7 +291,7 @@ int main() {
                 ignoredHellos++;
                 continue;
             }
-            ans = answreturn(req, &sqnr_counter, &window_size, &drop_pack_sqnr);
+            ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
             expectedSequence++;
             continue;
@@ -297,7 +310,7 @@ int main() {
                 ignoredCloses++;
                 continue;
             }
-            ans = answreturn(req, &sqnr_counter, &window_size, &drop_pack_sqnr);
+            ans = answreturn(req, expectedSequence, &window_size, &drop_pack_sqnr);
             sendAnswer(ans);
             stay = 0;
         }
