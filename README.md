@@ -1,8 +1,20 @@
 # rnks-apl  
 um das local.h und manipulation.h nicht herumschwirren zu haben
-git update-index --assume-unchanged local.h
+git update-index --assume-unchanged local.h  
 git update-index --assume-unchanged manipulation.h
 
+##aktueller Stand
+Client schickt an Server  
+beliebig viele Hellos gehen verloren, Client schickt alle 300ms bis HelloACK ankommt  
+Server schickt HelloACK  
+Client bekommt HelloACK, liest File und schickt Daten(1)  
+Client schickt alle 300ms Daten(n), wenn kein NACK kommt  
+Bei NACK schickt der Client das betreffende Paket nochmal.  
+Server speichert übergelaufene Pakete nicht! TODO  
+Client schickt alle 300ms Close, bis CloseAck kommt.  
+Server schickt CloseACK  
+Server printet ins file  
+  
 ##Notizen aus letzter Vorlesung vor Weihnachten  
 ####Sender
 *UDPv6 Socket öffnen  
