@@ -236,7 +236,7 @@ int exitServer() {
 	return(0);
 }
 
-struct answer *answreturn(struct request *reqPtr, int expectedSequence)
+struct answer *answreturn(struct request *reqPtr, unsigned int expectedSequence)
 {
 	struct answer* answ = malloc(sizeof(answ)+1);
   //struct answer* answ = malloc(sizeof(answ)); brings up heap corruption when writing to answ->SeNo, gonna play safe
@@ -275,11 +275,11 @@ int main() {
 	initServer(DEFAULT_SERVER, DEFAULT_PORT);
 	struct answer *ans;
     strlist* strl = NULL;
-	int window_size = 1, drop_pack_sqnr, drop = 0;
+	int window_size = 1,  drop = 0;
     unsigned long expectedSequence = 0;
     cache* rc = NULL;
     int cacheUsed = 0;
-    //int c, v;
+    //int c, v, drop_pack_sqnr;
     int stay = 1;
     int ignoredHellos = 0;
     int ignoredCloses = 0;
@@ -288,13 +288,13 @@ int main() {
         struct request *req = getRequest();
         if (req->SeNr > expectedSequence)
         {
-            ans = answreturn(req, expectedSequence);
-            sendAnswer(ans);
             if (req->ReqType == ReqData)
             {
                 insert(&rc, req);
                 printReq(*req, 2);
             }
+            ans = answreturn(req, expectedSequence);
+            sendAnswer(ans);
             continue;
         }
         if (req->SeNr < expectedSequence) //shit happens
