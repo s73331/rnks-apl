@@ -270,16 +270,74 @@ struct answer *answreturn(struct request *reqPtr, unsigned int expectedSequence)
 	}
 }
 
-int main() {
-    char* filename = FILE_TO_WRITE;
-	initServer(DEFAULT_SERVER, DEFAULT_PORT);
+
+int main(int argc, char** argv) {
+    int i = 0;
+    char *server = DEFAULT_SERVER;
+    char *filename = FILE_TO_WRITE;
+    long int port = DEFAULT_PORT;
+    long int window_size = 1;
+    //Parameter ueberpruefen
+    if (argc > 1) {
+        for (i = 1; i < argc; i++) {
+            if ((argv[i][0] == '0')||((argv[i][0] == '/'))&&(argv[i][1] != 0)&&(argv[i][2] == 0))
+            {
+                switch (tolower(argv[i][1])) {
+                case 'a':			//Server Address
+                    if (argv[i + 1]) {
+                        if (argv[i + 1][0] != '-') {
+                            server = argv[++i];
+                            break;
+                        }
+                    }
+                    Usage(argv[0]);
+                    break;
+                case 'p':			//Server Port
+                    if (argv[i + 1]) {
+                        if (argv[i + 1][0] != '-') {
+                            port = strtol(argv[++i], 0, 0); //argument 2 and 3 are optional
+                            if (port<0 || port>65535) Usage(argv[0]);
+                            break;
+                        }
+                    }
+                    Usage(argv[0]);
+                    break;
+                case 'f':			//File Name
+                    if (argv[i + 1]) {
+                        if (argv[i + 1][0] != '-') {
+                            filename = argv[++i];
+                            if (strlen(filename) > 259 || strlen(filename) < 1) Usage(argv[0]);
+                            break;
+                        }
+                    }
+                    Usage(argv[0]);
+                    break;
+                case 'w':			//Window Size
+                    if (argv[i + 1])
+                    {
+                        if (argv[i + 1][0] != '-') {
+                            window_size = strtol(argv[++i], 0, 0);
+                            if (window_size<1 || window_size>10) Usage(argv[0]);
+                            break;
+                        }
+                    }
+                    Usage(argv[0]);
+                    break;
+                default:
+                    Usage(argv[0]);
+                    break;
+                }
+            }
+            else Usage(argv[0]);
+        }
+    }
+    initServer(server, port);
 	struct answer *ans;
     strlist* strl = NULL;
-	int window_size = 1,  drop = 0;
     unsigned long expectedSequence = 0;
     cache* rc = NULL;
     int cacheUsed = 0;
-    //int c, v, drop_pack_sqnr;
+    //int c, v, drop_pack_sqnr, drop;
     int stay = 1;
     int ignoredHellos = 0;
     int ignoredCloses = 0;
@@ -334,81 +392,7 @@ int main() {
     if (w=writefile(filename, strl)) fprintf(stderr, "writefile() returned %i", w);
     return 0;
 }
-/*
-int main3(int argc, char *argv[])
-{
-	FILE *fp;
-	int i;
-	int status;
-	char buffer[256];
-	int packetnummer = 0;
-	char *Server = DEFAULT_SERVER;
-	char *Filename = "";
-	char *Port = DEFAULT_PORT;
-	char *Window_size = 10;
 
-	char buf[BUFLEN];
-	int recv_len;
-
-
-
-	status = 0;
-
-	//Parameter ueberpruefen
-	if (argc > 1) {
-		for (i = 1; i < argc; i++) {
-			if (((argv[i][0] == '0') || (argv[i][0] == '/')) && (argv[i][1] != 0) && (argv[i][2] == 0)) {
-				switch (tolower(argv[i][1])) {
-				case 'a':			//Server Address
-					if (argv[i + 1]) {
-						if (argv[i + 1][0] != '-') {
-							Server = argv[++i];
-							break;
-						}
-					}
-					Usage(argv[0]);
-					break;
-				case 'p':			//Server Port
-					if (argv[i + 1]) {
-						if (argv[i + 1][0] != '-') {
-							Port = argv[++i];
-							break;
-						}
-					}
-					Usage(argv[0]);
-					break;
-				case 'f':			//File Name
-					if (argv[i + 1]) {
-						if (argv[i + 1][0] != '-') {
-							Filename = argv[++i];
-							break;
-						}
-					}
-					Usage(argv[0]);
-					break;
-				case 'w':			//Window Size
-					if (argv[i + 1])
-					{
-						if (argv[i + 1][0] != '-') {
-							Window_size = argv[++i];
-							break;
-						}
-					}
-					Usage(argv[0]);
-					break;
-				default:
-					Usage(argv[0]);
-					break;
-				}
-			}
-			else
-				Usage(argv[0]);
-		}
-	}
-
-	//Server initialisieren
-	i = initServer(Server, Port);
-	printf("Addr:\t%s\nPort:\t%s\n", Server, Port);
 	//File erstellen
 	//fp = fopen(Filename, "w+");
 
