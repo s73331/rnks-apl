@@ -430,9 +430,31 @@ int main(int argc, char *argv[])
 	}
     req.ReqType = ReqClose;
     req.SeNr++;
-    w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
-    if (w == SOCKET_ERROR) {
-        fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
+    stay = 1;
+    while (stay)
+    {
+        w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
+        if (w == SOCKET_ERROR) {
+            fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
+        }
+        fd_reset(&fd, ConnSocket);
+        printReq(req, 1);
+        tl = add_timer(tl, 1, seqNr);
+        tv.tv_usec = (tl->timer)*TO;
+        int s = select(0, &fd, 0, 0, &tv);
+        if (!s) //timer expired
+        {
+            decrement_timer(tl);
+            tl = del_timer(tl, seqNr);
+            continue;
+        }
+        if (s == SOCKET_ERROR)
+        {
+            fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
+            exit(1);
+        }
+        tl = del_timer(tl, seqNr);
+        stay = 0;
     }
     recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
     if (recvcc == SOCKET_ERROR)
@@ -446,8 +468,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "ans.answType not AnswClose: %c\nexiting...", ans.AnswType);
         exit(1);
     }
-	fflush(stdin);
-	getchar();
 	closesocket(ConnSocket);
 	WSACleanup();
 
