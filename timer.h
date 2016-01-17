@@ -2,7 +2,7 @@ typedef struct timeouts
 {
 	unsigned long seq_nr;
 	unsigned long timer;    // number of TIMEOUT_INT for retransmitting
-	struct timeouts* next;
+    struct timeouts* next;
 } timeouts2;
 
 /*
@@ -11,7 +11,7 @@ typedef struct timeouts
     
     Always returns list.
 */
-struct timeouts* add_timer(struct timeouts *list, int timer_val, unsigned long seq_nr);
+struct timeouts* add_timer(struct timeouts *list, unsigned int timer_val, unsigned long seq_nr);
 
 /*
     Removes the timer with the given seq_nr.
