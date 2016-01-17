@@ -439,10 +439,9 @@ int main(int argc, char *argv[])
     int lastData = 0;
 
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
-    lastData=makeRequest(&req, ans, strli, 0, &lastSeNr, lastData);
+    lastData=sendRequest(&req, ans, strli, 0, &lastSeNr, lastData, ConnSocket, MAKE);
     while (stay)
     {
-        sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, DONTMAKE);
         tl = add_timer(tl, 1, req.SeNr);
         tv.tv_usec = (tl->timer)*TO;
         fd_reset(&fd, ConnSocket);
@@ -451,6 +450,7 @@ int main(int argc, char *argv[])
         {
             decrement_timer(tl);
             tl=del_timer(tl, req.SeNr);
+            sendRequest(&req, ans, strli, INITIAL, &lastSeNr, lastData, ConnSocket, DONTMAKE);
             continue;
         }
         if(s==SOCKET_ERROR)
@@ -470,8 +470,15 @@ int main(int argc, char *argv[])
     }
     if (r=readfile(FILE_TO_READ, &strli))
     {
-        fprintf(stderr, "reading file failed with error code: %i\nexiting...", r);
-        exit(5);
+        if (r == -1) // could not close file
+        {
+            "closing file failed\ncontinuing...";
+        }
+        else
+        {
+            fprintf(stderr, "reading file failed with error code: %i\nexiting...", r);
+            exit(5);
+        }
     }
     lastData=makeRequest(&req, ans, strli, ANSWER, &lastSeNr, lastData);
     stay = 1;
