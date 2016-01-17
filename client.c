@@ -468,18 +468,8 @@ int main(int argc, char *argv[])
             exit(4);
         }
     }
-    if (r=readfile(FILE_TO_READ, &strli))
-    {
-        if (r == -1) // could not close file
-        {
-            "closing file failed\ncontinuing...";
-        }
-        else
-        {
-            fprintf(stderr, "reading file failed with error code: %i\nexiting...", r);
-            exit(5);
-        }
-    }
+    if (readfilew(FILE_TO_READ, &strli))
+        fprintf(stderr, "closing file failed\ncontinuing...");        
     lastData=makeRequest(&req, ans, strli, ANSWER, &lastSeNr, lastData);
     stay = 1;
     while(stay)
