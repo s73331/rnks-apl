@@ -10,7 +10,9 @@
                                        is 2 times of the choosen real window size!!*/
 #define MAX_BUFFER 2*MAX_WINDOW     // packets must be stored for retransmission
 #define PufferSize 256
+
 extern char *errorTable[];
+
 
 #define MAKE     1
 #define DONTMAKE 0
@@ -46,3 +48,8 @@ typedef struct _strlist
     char str[PufferSize];
     struct _strlist* next;
 }strlist;
+typedef struct _cache
+{
+    struct request req;
+    struct _cache* next;
+}cache;
