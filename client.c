@@ -321,112 +321,136 @@ int main(int argc, char *argv[])
     int stay = 1;
     int stay2 = 1;
     struct timeouts* tl=NULL;
-    int seqNr = 0;
     struct answer ans;
     int w;
     struct request req;
     fd_set fd;
     struct timeval tv;
     tv.tv_sec = 0;
-
+    
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
     req.FlNr = 1;
     req.ReqType = ReqHello;
-    req.SeNr = seqNr;
+    req.SeNr = 0;
     while (stay)
     {
-        fd_reset(&fd, ConnSocket);
         w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
         if (w == SOCKET_ERROR) {
             fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
             exit(1);
         }
         printReq(req, 1);
-        tl = add_timer(tl, 1, seqNr);
+        tl = add_timer(tl, 1, req.SeNr);
         tv.tv_usec = (tl->timer)*TO;
         int s=select(0, &fd, 0, 0, &tv);
         if (!s) //timer expired
         {
             decrement_timer(tl);
-            tl=del_timer(tl, seqNr);
+            tl=del_timer(tl, req.SeNr);
             continue;
         }
         if(s==SOCKET_ERROR)
         {
             fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
-            exit(1);
+            exit(2);
         }
         stay = 0;
-        tl = del_timer(tl, seqNr);
+        tl = del_timer(tl, req.SeNr);
     }
     int recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
     if (recvcc == SOCKET_ERROR)
     {
         fprintf(stderr, "recvfrom() failed: error %d\n", WSAGetLastError());
-        exit(1);
+        exit(3);
     }
     printAns(ans, 0);
     if (ans.AnswType != AnswHello)
     {
         fprintf(stderr, "ans.answType not AnswHello: %c\nexiting...", ans.AnswType);
-        exit(1);
+        exit(4);
     }
-    char* str = 0;
-    int strl;
-    int strr=0;
+    strlist* strli = NULL;
     int r;
-    if (r=readfile(FILE_TO_READ, &str, &strl))
+    if (r=readfile(FILE_TO_READ, &strli))
     {
         fprintf(stderr, "reading file failed with error code: %i\nexiting...", r);
-        exit(1);
+        exit(5);
     }
     stay = 1;
     while(stay)
 	{
-		//int*  p_nr = (int*)sendString;
-		//*p_nr = htonl(nr);
         req.ReqType = ReqData;
         req.SeNr++;
-        char buf[PufferSize + 1];
+        if (req.SeNr == 3) req.SeNr = 4;
+        char buf[PufferSize+1];
+        buf[PufferSize] = 0;
         int gl;
-        if (gl=getline(buf, str, strl, &strr))
+        gl = getline(strli, req.SeNr - 1, buf); //-1, as SeNo=0 is not data
+        if (gl > 0) stay = 0;
+        if (gl < 0)
         {
-            if (gl > 0) stay = 0;
-            if (gl < 0)
-            {
-                fprintf(stderr, "getting line failed with error code %i\nexiting...",gl);
-                exit(1);
-            }
+            fprintf(stderr, "getting line failed with error code %i\nexiting...",gl);
+            exit(6);
         }
         strncpy(req.name, buf, PufferSize);
         stay2 = 1;
         while (stay2)
         {
+            fd_reset(&fd, ConnSocket);
             w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
             if (w == SOCKET_ERROR) {
                 fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
+                getchar();
+                exit(6);
             }
+            else printReq(req, 1);
             fd_reset(&fd, ConnSocket);
-            printReq(req, 1);
-            tl = add_timer(tl, 1, seqNr);
+            tl = add_timer(tl, 1, req.SeNr);
             tv.tv_usec = (tl->timer)*TO;
             int s = select(0, &fd, 0, 0, &tv);
             if (!s) //timer expired
             {
                 decrement_timer(tl);
-                tl=del_timer(tl, seqNr);
+                tl=del_timer(tl, req.SeNr);
                 stay2 = 0;
                 continue;
             }
             if (s == SOCKET_ERROR)
             {
                 fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
-                exit(1);
+                exit(7);
             }
-            tl=del_timer(tl, seqNr);
-            //resolve NACK to get seqNr
+            tl=del_timer(tl, req.SeNr);
+            recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
+            if (recvcc == SOCKET_ERROR)
+            {
+                fprintf(stderr, "recvfrom() failed: error %d\n", WSAGetLastError());
+                exit(8);
+            }
+            printAns(ans, 0);
+            if (ans.AnswType != AnswNACK)
+            {
+                fprintf(stderr, "ans.answType not AnswNACK: %c\nexiting...", ans.AnswType);
+                exit(9);
+            }
+            req.ReqType = ReqData;
+            gl = getline(strli, ans.SeNo - 1, buf); //-1, as SeNo=0 is not data
+            if (gl > 0) stay = 0;
+            if (gl < 0)
+            {
+                fprintf(stderr, "getting line failed with error code %i\nexiting...", gl);
+                exit(6);
+            }
+            strncpy(req.name, buf, PufferSize);
+            int seqnr = req.SeNr;
+            req.SeNr = ans.SeNo;
+            w = sendto(ConnSocket, (const char*)&req, sizeof(req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
+            if (w == SOCKET_ERROR) {
+                fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
+                exit(5);
+            }
+            req.SeNr = seqnr;
         }
-        seqNr++;
 	}
     req.ReqType = ReqClose;
     req.SeNr++;
@@ -439,34 +463,34 @@ int main(int argc, char *argv[])
         }
         fd_reset(&fd, ConnSocket);
         printReq(req, 1);
-        tl = add_timer(tl, 1, seqNr);
+        tl = add_timer(tl, 1, req.SeNr);
         tv.tv_usec = (tl->timer)*TO;
         int s = select(0, &fd, 0, 0, &tv);
         if (!s) //timer expired
         {
             decrement_timer(tl);
-            tl = del_timer(tl, seqNr);
+            tl = del_timer(tl, req.SeNr);
             continue;
         }
         if (s == SOCKET_ERROR)
         {
             fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
-            exit(1);
+            exit(10);
         }
-        tl = del_timer(tl, seqNr);
+        tl = del_timer(tl, req.SeNr);
         stay = 0;
     }
     recvcc = recvfrom(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
     if (recvcc == SOCKET_ERROR)
     {
         fprintf(stderr, "recvfrom() failed: error %d\n", WSAGetLastError());
-        exit(1);
+        exit(11);
     }
     printAns(ans, 0);
     if (ans.AnswType != AnswClose)
     {
         fprintf(stderr, "ans.answType not AnswClose: %c\nexiting...", ans.AnswType);
-        exit(1);
+        exit(12);
     }
 	closesocket(ConnSocket);
 	WSACleanup();
