@@ -424,10 +424,9 @@ int main(int argc, char *argv[])
                 exit(1);
             }
             tl=del_timer(tl, seqNr);
+            //resolve NACK to get seqNr
         }
         seqNr++;
-        //  fflush(stdin);
-        //  getchar();
 	}
     req.ReqType = ReqClose;
     req.SeNr++;
