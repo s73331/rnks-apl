@@ -254,7 +254,6 @@ int main() {
 	initServer(DEFAULT_SERVER, DEFAULT_PORT);
 	struct answer *ans;
     strlist* strl = NULL;
-    strlist* last = NULL;
 	int sqnr_counter = 1, window_size = 1, drop_pack_sqnr, drop = 0;
     int expectedSequence = 0;
     //int c, v;
@@ -276,7 +275,7 @@ int main() {
         }
         if (req->ReqType == ReqData)
         {
-            addtolist(strl, last, req->name);
+            strl=addtolist(strl, req->name);
             expectedSequence++;
             continue;
         }
