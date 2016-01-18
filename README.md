@@ -16,6 +16,11 @@ Client schickt einen Close
 Server schickt CloseACK, noch fehlende NACKs oder NACK für Close, wenn timeout  
 Client schickt nach, bis CloseACK kommt  
 Server printet ins file  
+
+##todo  
+in file.c/readfile: free(buf); corrupts heap  
+in serverSyUDP.c  : free memory  
+in client.c       : free memory
   
 ##Notizen aus letzter Vorlesung vor Weihnachten  
 ####Sender

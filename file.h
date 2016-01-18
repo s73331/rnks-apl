@@ -7,6 +7,7 @@
              4 error when fseek to SEEK_SET
              5 error when allocating memory for destination
              6 error when reading
+             7 opened empty file
         When the absolute value is greater than 1 and the return value is negative, then the file wasn't closed properly.
 
     The input value of destination does not matter.

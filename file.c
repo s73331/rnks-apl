@@ -15,6 +15,9 @@ int readfile(char* path, struct _strlist** start)
     if (fsize == -1L)
         if (fclose(f)) return -3;
         else return 3;
+    if (fsize == 1)                     // file is empty
+        if (fclose(f)) return -7;
+        else return 7;
     if(fseek(f, 0, SEEK_SET))           // back to start
         if (fclose(f)) return -4;
         else return 4;
@@ -23,7 +26,7 @@ int readfile(char* path, struct _strlist** start)
         if (fclose(f)) return -5;
         else return 5;
     (*temp) = 0;
-    char* buf = malloc(sizeof(char)*(fsize + 1));
+    char* buf = malloc((fsize + 1)*sizeof(char));
     (*buf) = 0;
     int length = 0;
     while (!feof(f))                    // while file has not ended
@@ -45,20 +48,29 @@ int readfile(char* path, struct _strlist** start)
     strlist* li;
     strlist* help;
     li = malloc(sizeof(strlist));
-    if (li==NULL) return 5;
+    if (li == NULL)
+    {
+        free(temp);
+        return 5;
+    }
     li->next = NULL;
     *start = li;
     strncpy(li->str, temp, PufferSize);           // copy first part into li->str
     for (int i = 1; i*PufferSize < length; i++)
     {
         help = malloc(sizeof(strlist));
-        if (!help) return 5;
+        if (!help)
+        {
+            free(temp);
+            return 5;
+        }
         li->next = help;
         li = li->next;
         li->next = NULL;
         strncpy(li->str, temp + i*PufferSize*sizeof(char), PufferSize);
                                                   // copy next part into li->str
     }
+    free(temp);
     if (fclose(f)) return -1;
     return 0;
 }

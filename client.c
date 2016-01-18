@@ -454,6 +454,8 @@ int main(int argc, char *argv[])
     int lastData = 0;                           // 0 still have data, 1 have just read last line, 2 have read last line before
     int HelloAckRecvd = FALSE;
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
+    if (readfilew(FILE_TO_READ, &strli))
+        fprintf(stderr, "closing file failed\ncontinuing...\n");
 
     lastData+=sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket);
     int stay = 1;
@@ -488,8 +490,6 @@ int main(int argc, char *argv[])
                     fprintf(stderr, "Received another HelloACK\ncontinuing...\n");
                     continue;
                 }
-                if (readfilew(FILE_TO_READ, &strli))
-                    fprintf(stderr, "closing file failed\ncontinuing...\n");
                 lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket);
                 break;
             case AnswNACK:
