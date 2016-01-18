@@ -182,29 +182,25 @@ struct request *getRequest() {
 	int remoteAddrSize = sizeof(struct sockaddr_in6);
     int stay = 1;
 	/* Receive a message from a socket */
-    while (stay)
+    stay = 0;
+    recvcc = recvfrom(ConnSocket, (char*)&req, sizeof(req), 0, (struct sockaddr *) resultMulticastAddress, &remoteAddrSize);
+    if (recvcc == SOCKET_ERROR) {
+        fprintf(stderr, "recv() failed: error %d\n", WSAGetLastError());
+        closesocket(ConnSocket);
+        WSACleanup();
+        exit(-3);
+    }
+    if (recvcc == 0) {
+        printf("Client closed connection\n");
+        closesocket(ConnSocket);
+        WSACleanup();
+        exit(-6);
+    }
+    if (IGNORE_ARRAY_SIZE > req.SeNr && IGNORE_DATA[req.SeNr])
     {
-        stay = 0;
-        recvcc = recvfrom(ConnSocket, (char*)&req, sizeof(req), 0, (struct sockaddr *) resultMulticastAddress, &remoteAddrSize);
-        if (recvcc == SOCKET_ERROR) {
-            fprintf(stderr, "recv() failed: error %d\n", WSAGetLastError());
-            closesocket(ConnSocket);
-            WSACleanup();
-            exit(-3);
-        }
-        if (recvcc == 0) {
-            printf("Client closed connection\n");
-            closesocket(ConnSocket);
-            WSACleanup();
-            exit(-6);
-        }
-        if (IGNORE_ARRAY_SIZE > req.SeNr && IGNORE_DATA[req.SeNr])
-        {
-            printReq(req, 4);
-            IGNORE_DATA[req.SeNr]--;
-            stay = 1;
-            continue;
-        }
+        printReq(req, 4);
+        IGNORE_DATA[req.SeNr]--;
+        stay = 1;
     }
     printReq(req, 0);
 	return(&req);
@@ -356,12 +352,15 @@ int main(int argc, char** argv) {
     expectedSequence++;
     while (stay)
     {   
-        fd_reset(&fd, ConnSocket);                  //add ConnSocket to struct, needs to be redone before every select
-        tl = add_timer(tl, 1, req->SeNr);
-        tv.tv_usec = (tl->timer)*TO * 3;
-        s = select(0, &fd, 0, 0, &tv);              //if socket is ready or timer expired 
+        fd_reset(&fd, ConnSocket);                  // add ConnSocket to struct, needs to be redone before every select
+        tl = add_timer(tl, TIMEOUT, req->SeNr);
+        tv.tv_usec = (long)(tl->timer)*TO*1.2;           // multiply by 1.1 as otherwise our NACK would cross their datapacket
+        s = select(0, &fd, 0, 0, &tv);              // if socket is ready or timer expired 
         if (!s) //timer expired
         {
+            SYSTEMTIME st;
+            GetSystemTime(&st);
+            printf("\t\t\t\t\t\t%02d.%d\n", st.wSecond, st.wMilliseconds);
             tl = del_timer(tl, req->SeNr, FALSE);
             ans = answreturn(req, expectedSequence);
             sendAnswer(ans);
@@ -372,6 +371,7 @@ int main(int argc, char** argv) {
             fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
             exit(7);
         }
+        tl = del_timer(tl, req->SeNr, TRUE);
         req = getRequest();
         if (req->SeNr > expectedSequence)
         {

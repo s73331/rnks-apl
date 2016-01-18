@@ -5,15 +5,15 @@
 #include <sys/types.h>
 #include <string.h>
 #include <time.h>
-
 #include "timer.h"
-
 //#define DEBUG
+
 struct timeouts* add_timer(struct timeouts *list, unsigned int timer_val, unsigned long seq_nr)
 {
     struct timeouts *help, *new_elem;
     int sum = 0;
     new_elem = (struct timeouts*)malloc(sizeof(struct timeouts));
+    new_elem->next = NULL;
     // insert in order
     if (list == NULL){
         list = new_elem;
@@ -45,9 +45,10 @@ struct timeouts* add_timer(struct timeouts *list, unsigned int timer_val, unsign
     #ifdef DEBUG
         help=list;
         while (help != NULL){
-            printf("add_timer:seq_nr: %lu \t timer: %lu \n", help->seq_nr,help->timer);
+            printf("add_timer:seq_nr: %lu \t timer: %lu\t%p \n", help->seq_nr,help->timer, help);
             help=help->next;
         }
+        printf("\n");
     #endif
     return list;
 }
@@ -88,9 +89,10 @@ struct timeouts* del_timer(struct timeouts *list, unsigned long seq_nr, int addT
         printf("del_timer: list after delete: \n");
         help=list;
         while (help != NULL){
-            printf("del_timer: seq_nr %lu \t timer%lu \n", help->seq_nr,help->timer);
+            printf("del_timer: seq_nr %lu \t timer: %lu\t%p \n", help->seq_nr,help->timer, help);
             help=help->next;
         }
+        printf("\n");
     #endif
     return list;
 }

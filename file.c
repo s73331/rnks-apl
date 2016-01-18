@@ -15,7 +15,7 @@ int readfile(char* path, struct _strlist** start)
     if (fsize == -1L)
         if (fclose(f)) return -3;
         else return 3;
-    if (fsize == 1)                     // file is empty
+    if (fsize <= 1)                     // file is empty
         if (fclose(f)) return -7;
         else return 7;
     if(fseek(f, 0, SEEK_SET))           // back to start

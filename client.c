@@ -22,7 +22,7 @@
 #include "sock.h"
 #include "manipulation.h"
 #pragma comment(lib, "Ws2_32.lib")	
-
+int packetsOnWay = 0;
 #define BUFLEN 512
 
 struct request req;
@@ -319,7 +319,7 @@ return:
          0 - success
          1 - got last line
 */
-int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int* lastData)
+int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, unsigned long* lastSeNr, int* lastData)
 {
     if (toAnswer)
     {
@@ -358,6 +358,7 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
                 }
             }
             req->SeNr = ans.SeNo;               // else send him datapacket
+            if (req->SeNr > *lastSeNr) *lastSeNr = req->SeNr;
             req->ReqType = ReqData;
             char buf[PufferSize + 1];
             buf[PufferSize] = 0;
@@ -409,7 +410,7 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
     fprintf(stderr, "reached illegal position in makeRequest()\nexiting...");
     exit(1);
 }
-int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, int* lastSeNr, int* lastData, SOCKET ConnSocket)
+int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, unsigned long* lastSeNr, int* lastData, SOCKET ConnSocket, struct timeouts** timeouts)
 {
     int ret = makeRequest(req, ans, strli, toAnswer, lastSeNr, lastData);
     if (NOSEND_ARRAY_SIZE > req->SeNr && NOSEND_DATA[req->SeNr])
@@ -423,7 +424,12 @@ int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAn
         fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
         exit(1);
     }
+    *timeouts=del_timer(*timeouts, req->SeNr, TRUE);
+    *timeouts = add_timer(*timeouts, 1, req->SeNr+1);       // timer for next packet 
+    if (req->ReqType != ReqHello)
+        *timeouts = add_timer(*timeouts, TIMEOUT, req->SeNr);   // timer for window
     printReq(*req, 1);
+    packetsOnWay++;
     return ret;
 }
 int recvfromw(SOCKET ConnSocket, char* buf, size_t len, int flags, struct sockaddr* from, int* fromlen)
@@ -444,34 +450,59 @@ int main(int argc, char *argv[])
     struct timeouts* tl=NULL;                   // struct to store our timeouts
     struct answer ans;
     ans.SeNo = 0;
-    struct request req;            
+    struct request req;  
     req.SeNr = 0;
     fd_set fd;
     struct timeval tv;                          // struct for select-timevals
     tv.tv_sec = 0;
+    unsigned long window_start =  0;
+    unsigned long window_size  =  1;
     strlist* strli=NULL;                        // struct for our file, which turned into a list of char-arrays (note: NOT strings, not even C-Strings)
-    int lastSeNr = 0;                           // last sequence number we ever sent
+    unsigned long lastSeNr = 0;                 // last sequence number we ever sent
     int lastData = 0;                           // 0 still have data, 1 have just read last line, 2 have read last line before
     int HelloAckRecvd = FALSE;
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
     if (readfilew(FILE_TO_READ, &strli))
         fprintf(stderr, "closing file failed\ncontinuing...\n");
-
-    lastData+=sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket);
+    lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, &tl);
     int stay = 1;
     while(stay)
 	{
-        if (req.ReqType != ReqClose)            // the only time when we're truly waiting
-        {
-            fd_reset(&fd, ConnSocket);          // reset our fd for select
-            tl = add_timer(tl, 1, req.SeNr);    
-            tv.tv_usec = (tl->timer)*TO;        // get time of shortest timer
-            int s = select(0, &fd, 0, 0, &tv);  // select if socket is read or timeout has passed
-            if (!s) //timer expired
-            {
-                decrement_timer(tl);
-                tl = del_timer(tl, req.SeNr, FALSE); // remove timer without adding the time to the next, as it just passed
-                lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket);
+        SYSTEMTIME st;
+        GetSystemTime(&st);
+        printf("%i\t%d\t%d\t", window_start, lastSeNr, tl->seq_nr);
+        printf("\t\t\t%02d.%03d\n", st.wSecond, st.wMilliseconds);
+        if (req.ReqType != ReqClose)                 // the only time when we're truly waiting (NACK or CloseACK)
+        {           
+            fd_reset(&fd, ConnSocket);               // reset our fd for select
+            tv.tv_usec = (tl->timer)*TO;             // get time of shortest timer
+            int s = select(0, &fd, 0, 0, &tv);       // select if socket is read or timeout has passed
+            if (!s) //timer expired                 
+            {    
+                if (tl->seq_nr > lastSeNr)          // if it is a packet we haven't sent
+                {
+                    if (lastSeNr < window_start + window_size)  // and the window allows us to send one
+                    {
+                        lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, &tl);
+                        continue;
+                    }
+                    int seq = tl->seq_nr;
+                    tl = del_timer(tl, tl->seq_nr, FALSE);
+                    tl = add_timer(tl, 1, seq);
+                    continue;
+                }
+                else if (window_start < tl->seq_nr || tl->seq_nr==1)
+                {
+                    window_start = tl->seq_nr;               // packet must've come through
+                    tl = del_timer(tl, tl->seq_nr, FALSE);
+                    continue;
+                }
+              //  tl = del_timer(tl, tl->seq_nr, FALSE);
+                printf("\t\t\t\t%d\n", tl->seq_nr);
+               /* if (lastSeNr+1 < window_start + window_size)  // if the window allows us to send a packet
+                {
+                    lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, &tl);
+                }*/
                 continue;
             }
             if (s == SOCKET_ERROR)
@@ -479,7 +510,6 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
                 exit(7);
             }
-            tl = del_timer(tl, req.SeNr, TRUE); // ACKs are almost instant, removing timer and adding its time to the next
         }
         recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
         switch (ans.AnswType)
@@ -490,16 +520,20 @@ int main(int argc, char *argv[])
                     fprintf(stderr, "Received another HelloACK\ncontinuing...\n");
                     continue;
                 }
-                lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket);
+                tl = del_timer(tl, ans.SeNo, TRUE);
+                lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, &tl);
+                window_start++;
+                HelloAckRecvd = 1;
                 break;
             case AnswNACK:
-                lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket);
+                tl = del_timer(tl, ans.SeNo, TRUE);
+                lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, &tl);
                 continue;
             case AnswClose:
                 stay = 0;
                 continue;
             default:
-                fprintf(stderr, "not recognized Answ\nexiting\n");
+                fprintf(stderr, "not recognized ans.AnswType\nexiting\n");
                 exit(1);
         }
     }

@@ -2,12 +2,15 @@
 #include "data.h"
 #include <string.h>
 #include <stdio.h>
+#include <Windows.h>
 void printAns(struct answer answ, int sent)
 {
     printf("Answer\tNo: %i\ttype: %c\tstatus: ", answ.SeNo, answ.AnswType);
-    if (sent) printf("Sent");
+    if (sent) printf("Sent\t");
     else printf("Received");
-    printf("\n");
+    SYSTEMTIME st;
+    GetSystemTime(&st);
+    printf("\t%02d.%d\n", st.wSecond, st.wMilliseconds);
 }
 void printReq(struct request req, int flag)
 {
@@ -29,6 +32,9 @@ void printReq(struct request req, int flag)
     default:
         fprintf(stderr, "passed invalid flag to printReq(): %i", flag);
     }
+    SYSTEMTIME st;
+    GetSystemTime(&st);
+    printf("\t%02d.%03d", st.wSecond, st.wMilliseconds);
     if (req.ReqType == ReqData)
     {
         char buf[PufferSize + 1];
