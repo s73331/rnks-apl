@@ -343,21 +343,21 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
         }
         if (ans.AnswType == AnswNACK)
         {
-            if (*lastData)
+            if (*lastData)                      // if we      have read the last line
             {
-                if (*lastData == 1)
+                if (*lastData == 1)             // if we JUST have read the last line
                 {
-                    (*lastData)++;
-                    (*lastSeNr)++;
+                    (*lastSeNr)++;              // we increment lastSeNr the last time
+                    (*lastData)++;              // and we remark, that we've done this
                 }
-                if (ans.SeNo == *lastSeNr)
+                if (ans.SeNo == *lastSeNr)      // if server NACKs Close, send him Close
                 {
                     req->ReqType = ReqClose;
                     req->SeNr = *lastSeNr;
                     return 0;
                 }
             }
-            req->SeNr = ans.SeNo;
+            req->SeNr = ans.SeNo;               // else send him datapacket
             req->ReqType = ReqData;
             char buf[PufferSize + 1];
             buf[PufferSize] = 0;
@@ -380,14 +380,14 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
             req->ReqType = ReqHello;
             return 0;
         }
-        if (*lastData)
+        if (*lastData)                      // if we      have read the last line
         {
-            if (*lastData == 1)
+            if (*lastData == 1)             // if we JUST have read the last line
             {
-                (*lastData)++;
-                (*lastSeNr)++;
+                (*lastData)++;              // we increment lastSeNr the last time
+                (*lastSeNr)++;              // and we remark, that we've done this
             }
-            req->SeNr = *lastSeNr;
+            req->SeNr = *lastSeNr;          
             req->ReqType = ReqClose;
             return 0;
         }
@@ -441,34 +441,34 @@ int recvfromw(SOCKET ConnSocket, char* buf, size_t len, int flags, struct sockad
 int main(int argc, char *argv[])
 {
     printf("Sender(Client)\n\n");
-    struct timeouts* tl=NULL;
+    struct timeouts* tl=NULL;                   // struct to store our timeouts
     struct answer ans;
     ans.SeNo = 0;
-    struct request req;
+    struct request req;            
     req.SeNr = 0;
     fd_set fd;
-    struct timeval tv;
+    struct timeval tv;                          // struct for select-timevals
     tv.tv_sec = 0;
-    strlist* strli = NULL;
-    int lastSeNr = 0;
-    int lastData = 0;
-    int HelloAckRecvd = 0;
+    strlist* strli=NULL;                        // struct for our file, which turned into a list of char-arrays (note: NOT strings, not even C-Strings)
+    int lastSeNr = 0;                           // last sequence number we ever sent
+    int lastData = 0;                           // 0 still have data, 1 have just read last line, 2 have read last line before
+    int HelloAckRecvd = FALSE;
 	initClient(DEFAULT_SERVER, DEFAULT_PORT);
 
     lastData+=sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket);
     int stay = 1;
     while(stay)
 	{
-        if (req.ReqType != ReqClose) // the only time when we're truly waiting
+        if (req.ReqType != ReqClose)            // the only time when we're truly waiting
         {
-            fd_reset(&fd, ConnSocket);
-            tl = add_timer(tl, 1, req.SeNr);
-            tv.tv_usec = (tl->timer)*TO;
-            int s = select(0, &fd, 0, 0, &tv);
+            fd_reset(&fd, ConnSocket);          // reset our fd for select
+            tl = add_timer(tl, 1, req.SeNr);    
+            tv.tv_usec = (tl->timer)*TO;        // get time of shortest timer
+            int s = select(0, &fd, 0, 0, &tv);  // select if socket is read or timeout has passed
             if (!s) //timer expired
             {
                 decrement_timer(tl);
-                tl = del_timer(tl, req.SeNr, FALSE);
+                tl = del_timer(tl, req.SeNr, FALSE); // remove timer without adding the time to the next, as it just passed
                 lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket);
                 continue;
             }
@@ -477,7 +477,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
                 exit(7);
             }
-            tl = del_timer(tl, req.SeNr, TRUE);
+            tl = del_timer(tl, req.SeNr, TRUE); // ACKs are almost instant, removing timer and adding its time to the next
         }
         recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
         switch (ans.AnswType)
@@ -488,7 +488,6 @@ int main(int argc, char *argv[])
                     fprintf(stderr, "Received another HelloACK\ncontinuing...\n");
                     continue;
                 }
-
                 if (readfilew(FILE_TO_READ, &strli))
                     fprintf(stderr, "closing file failed\ncontinuing...\n");
                 lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket);

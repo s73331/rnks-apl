@@ -8,14 +8,14 @@ int readfile(char* path, struct _strlist** start)
 {
 	FILE* f = fopen(path, "r");
 	if (f == NULL) return 1;
-    if(fseek(f, 0, SEEK_END)) 
+    if(fseek(f, 0, SEEK_END))           // go to the end of the file
         if (fclose(f)) return -2;
         else return 2;
-    long fsize = ftell(f);
+    long fsize = ftell(f);              // get the position = number of chars
     if (fsize == -1L)
         if (fclose(f)) return -3;
         else return 3;
-    if(fseek(f, 0, SEEK_SET))
+    if(fseek(f, 0, SEEK_SET))           // back to start
         if (fclose(f)) return -4;
         else return 4;
     char *temp = malloc((fsize + 1)*sizeof(char));
@@ -26,11 +26,12 @@ int readfile(char* path, struct _strlist** start)
     char* buf = malloc(sizeof(char)*(fsize + 1));
     (*buf) = 0;
     int length = 0;
-    while (!feof(f))
+    while (!feof(f))                    // while file has not ended
     {
-        if (fgets(buf, fsize, f))
+        if (fgets(buf, fsize, f))       // get a line or fsize chars
         {
-            strcat(temp, buf);
+            buf[fsize + 1] = 0;         // get the string an end, if fsize chars were read
+            strcat(temp, buf);          // and cat that to temp
             length += strlen(buf);
         }
         if (ferror(f))
@@ -47,7 +48,7 @@ int readfile(char* path, struct _strlist** start)
     if (li==NULL) return 5;
     li->next = NULL;
     *start = li;
-    strncpy(li->str, temp, PufferSize);
+    strncpy(li->str, temp, PufferSize);           // copy first part into li->str
     for (int i = 1; i*PufferSize < length; i++)
     {
         help = malloc(sizeof(strlist));
@@ -56,6 +57,7 @@ int readfile(char* path, struct _strlist** start)
         li = li->next;
         li->next = NULL;
         strncpy(li->str, temp + i*PufferSize*sizeof(char), PufferSize);
+                                                  // copy next part into li->str
     }
     if (fclose(f)) return -1;
     return 0;
@@ -86,16 +88,16 @@ int writefile(char* path, strlist* start)
 }
 int getline(strlist* strl, int identifier, char* destination)
 {
-    if (!strl||!destination) return -1;
+    if (!strl||!destination) return -1;     // either NULL
     struct _strlist* help = strl;
     for (; identifier; identifier--)
     {
-        if (!help->next) return -2;
+        if (!help->next) return -2;         // illegal identifier
         help = help->next;
     }
     strncpy(destination, help->str, PufferSize);
-    if (help->next) return 0;
-    return 1;
+    if (help->next) return 0;               // if we have a next line return 0
+    return 1;                               // if not 1
 }
 struct _strlist* addtolist(strlist* start, char* buf)
 {

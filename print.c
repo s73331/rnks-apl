@@ -33,7 +33,7 @@ void printReq(struct request req, int flag)
     {
         char buf[PufferSize + 1];
         strncpy(buf, req.name, 10);
-        buf[10] = 0;
+        buf[10] = 0;                    // got no more space
         printf("\tdata: %s", buf);
     }
     printf("\n");

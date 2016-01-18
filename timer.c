@@ -60,6 +60,7 @@ struct timeouts* del_timer(struct timeouts *list, unsigned long seq_nr, int addT
         list = list->next;
         // as the timer values are relative to each other the
         // next element‘s timer must be the sum of deleted element‘s timer and its own timer
+        // but if the time has passed, we don't add the time again
         if (list != NULL && addToOther) list->timer+= help->timer;
     }
     else{

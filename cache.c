@@ -24,6 +24,7 @@ void insert(struct _cache** start, struct request* newelem)
     }
     struct _cache* help=*start;
     while (help->next && help->req.SeNr < newelem->SeNr) help = help->next;
+        //iterate through list, until either list ends or SeNr is greater or equal
     if (help->req.SeNr == newelem->SeNr) return;
     newel->next = help->next;
     help->next = newel;
@@ -32,7 +33,7 @@ void insert(struct _cache** start, struct request* newelem)
 int peek(struct _cache* start)
 {
     if (!start) return 0;
-    return start->req.SeNr;
+    return start->req.SeNr; //lowest SeNr is always at start
 }
 struct _cache* get(struct _cache** start)
 {

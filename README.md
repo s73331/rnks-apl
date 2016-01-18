@@ -12,8 +12,9 @@ Client schickt alle 300ms Daten(n), wenn kein NACK kommt
 Server speichert Paket, das nicht reihenfolgetreu ist  
 Bei NACK schickt der Client das betreffende Paket nochmal.  
 Server ordnet Paket wieder ein  
-Client schickt alle 300ms Close, bis CloseAck kommt.  
-Server schickt CloseACK  
+Client schickt einen Close  
+Server schickt CloseACK, noch fehlende NACKs oder NACK für Close, wenn timeout  
+Client schickt nach, bis CloseACK kommt  
 Server printet ins file  
   
 ##Notizen aus letzter Vorlesung vor Weihnachten  

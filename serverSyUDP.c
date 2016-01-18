@@ -247,6 +247,7 @@ struct answer *answreturn(struct request *reqPtr, unsigned int expectedSequence)
 	case ReqHello:
 		answ->AnswType = AnswHello;
 		answ->SeNo = reqPtr->SeNr;
+        reqPtr->ReqType = ReqData; // we answered HelloACK, next time we will NACK if no more packet comes until timeout
 		return answ;
 		break;
     case ReqClose:
