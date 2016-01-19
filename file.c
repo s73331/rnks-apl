@@ -134,3 +134,12 @@ struct _strlist* addtolist(strlist* start, char* buf)
     help->next = next;
     return start;
 }
+void freelist(strlist* start)
+{
+    while (start)
+    {
+        strlist* help = start->next;
+        free(start);
+        start = help;
+    }
+}

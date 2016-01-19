@@ -42,6 +42,11 @@ int writefile(char* path, struct _strlist* string);
 int getline(struct _strlist* strl, int identifier, char* destination);
 
 /*
-    
+    Adds a string to the start of the list.  
 */
 struct _strlist* addtolist(struct _strlist* start, char* buf);
+
+/*
+    Frees the whole list.
+*/
+void freelist(struct _strlist* start);

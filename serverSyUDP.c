@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 #include "data.h"
 #include "config.h"
 #include "toUdp.h"
@@ -265,7 +266,7 @@ struct answer *answreturn(struct request *reqPtr, unsigned int expectedSequence)
 
 
 int main(int argc, char** argv) {
-    srand(time(NULL));
+    srand((unsigned int)time(NULL));
     int i = 0;
     char *server = DEFAULT_SERVER;
     char *filename = FILE_TO_WRITE;
@@ -426,6 +427,7 @@ int main(int argc, char** argv) {
     }
     int w;
     if (w=writefile(filename, strl)) fprintf(stderr, "writefile() returned %i", w);
+    freelist(strl);
     return 0;
 }
 
