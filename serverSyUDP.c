@@ -231,37 +231,36 @@ int exitServer() {
 	return(0);
 }
 
-struct answer *answreturn(struct request *reqPtr, unsigned int expectedSequence)
+void answreturn(struct answer* answ, struct request *reqPtr, unsigned int expectedSequence)
 {
-	struct answer* answ = malloc(sizeof(answ)+1);
-  //struct answer* answ = malloc(sizeof(answ)); brings up heap corruption when writing to answ->SeNo, gonna play safe
+     //struct answer* answ = malloc(sizeof(answ)); brings up heap corruption when writing to answ->SeNo, gonna play safe
     switch (reqPtr->ReqType)
 	{
 	case ReqHello:
 		answ->AnswType = AnswHello;
 		answ->SeNo = reqPtr->SeNr;
         reqPtr->ReqType = ReqData; // we answered HelloACK, next time we will NACK if no more packet comes until timeout
-		return answ;
+		return;
 		break;
     case ReqClose:
         if (expectedSequence < reqPtr->SeNr)
         {
             answ->AnswType = AnswNACK;
             answ->SeNo = expectedSequence;
-            return answ;
+            return;
         }
         answ->AnswType = AnswClose;
         answ->SeNo = reqPtr->SeNr;
-        return answ;
+        return;
         break;
     case ReqData:
         answ->AnswType = AnswNACK;
         answ->SeNo = expectedSequence;
-        return answ;
+        return;
         break;
     default:
-		printf("default");
-        return NULL;
+		printf("couldn't generate answer\nexiting\n");
+        exit(1);
 		break;
 	}
 }
@@ -339,7 +338,7 @@ int main(int argc, char** argv) {
         }
     }
     initServer(server, port);
-    struct answer *ans;
+    struct answer ans;
     unsigned long expectedSequence = 0;
     struct timeouts* tl = NULL;         //struct to manage timeouts
     strlist* strl = NULL;               //to store strings of packets in order
@@ -356,8 +355,8 @@ int main(int argc, char** argv) {
         fprintf(stderr, "expected ReqHello\nexiting...");
         exit(1);
     }
-    ans = answreturn(&req, expectedSequence);
-    sendAnswer(ans);
+    answreturn(&ans, &req, expectedSequence);
+    sendAnswer(&ans);
     expectedSequence++;
     while (stay)
     {   
@@ -368,8 +367,8 @@ int main(int argc, char** argv) {
         if (!s) //timer expired
         {
             tl = del_timer(tl, req.SeNr, FALSE);
-            ans = answreturn(&req, expectedSequence);
-            sendAnswer(ans);
+            answreturn(&ans, &req, expectedSequence);
+            sendAnswer(&ans);
             continue;
         }
         if (s == SOCKET_ERROR)
@@ -393,8 +392,8 @@ int main(int argc, char** argv) {
                 insert(&rc, &req);       //put packet in cache
                 printReq(req, 2);
             }
-            ans = answreturn(&req, expectedSequence);
-            sendAnswer(ans);
+            answreturn(&ans, &req, expectedSequence);
+            sendAnswer(&ans);
             continue;
         }
         if (req.SeNr < expectedSequence) //shit happens
@@ -410,6 +409,8 @@ int main(int argc, char** argv) {
             {
                 cache* ca = get(&rc);                   // get it out
                 strl = addtolist(strl, ca->req.name);   // and store its string
+                free(ca);
+                ca = NULL;
                 expectedSequence++;
                 printReq(ca->req, 3);
             }
@@ -422,8 +423,8 @@ int main(int argc, char** argv) {
                 printReq(req, 5);
                 continue;                               // continue sending a NACK
             }
-            ans = answreturn(&req, expectedSequence);    // else send a CloseACK
-            sendAnswer(ans);
+            answreturn(&ans, &req, expectedSequence);    // else send a CloseACK
+            sendAnswer(&ans);
             stay = 0;                                   // get out of loop
         }
     }
