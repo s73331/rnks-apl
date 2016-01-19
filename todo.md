@@ -8,4 +8,6 @@ multicast
   
 add support for error quota
   
-code review (variable names, function names, osi-conform code structure)
+code review (variable names, function names, osi-conform code structure)  
+  
+test for errors
