@@ -6,7 +6,8 @@
 #include <WinSock2.h>
 #include <ws2tcpip.h>
 #include <ctype.h>
-
+#include <stdlib.h>
+#include <math.h>
 #include "data.h"
 #include "config.h"
 #include "toUdp.h"
@@ -17,7 +18,8 @@
 #include "cache.h"
 #include "sock.h"
 #include "timer.h"
-
+double errorQuota = -1;
+int manipulating = 0;
 #pragma comment(lib, "Ws2_32.lib")				// necessary for the WinSock2 lib
 
 #define BUFLEN 512
@@ -176,13 +178,9 @@ int initServer(char *MCAddress, char *Port) {
 }
 
 struct request *getRequest() {
-	//printf("in get req\n");
-	//static long seq_number = 0;  //expected seq_number in byte
 	int recvcc;		     /*Length of received Message */
 	int remoteAddrSize = sizeof(struct sockaddr_in6);
-    int stay = 1;
-	/* Receive a message from a socket */
-    stay = 0;
+    /* Receive a message from a socket */
     recvcc = recvfrom(ConnSocket, (char*)&req, sizeof(req), 0, (struct sockaddr *) resultMulticastAddress, &remoteAddrSize);
     if (recvcc == SOCKET_ERROR) {
         fprintf(stderr, "recv() failed: error %d\n", WSAGetLastError());
@@ -196,14 +194,10 @@ struct request *getRequest() {
         WSACleanup();
         exit(-6);
     }
-    if (IGNORE_ARRAY_SIZE > req.SeNr && IGNORE_DATA[req.SeNr])
-    {
+    if (manipulating)
         printReq(req, 4);
-        IGNORE_DATA[req.SeNr]--;
-        stay = 1;
-    }
-    printReq(req, 0);
-	return(&req);
+    else printReq(req, 0);
+	return &req;
 }
 
 void sendAnswer(struct answer * answ) {
@@ -271,6 +265,7 @@ struct answer *answreturn(struct request *reqPtr, unsigned int expectedSequence)
 
 
 int main(int argc, char** argv) {
+    srand(time(NULL));
     int i = 0;
     char *server = DEFAULT_SERVER;
     char *filename = FILE_TO_WRITE;
@@ -282,6 +277,17 @@ int main(int argc, char** argv) {
             if ((argv[i][0] == '-')||((argv[i][0] == '/'))&&(argv[i][1] != 0)&&(argv[i][2] == 0))
             {
                 switch (tolower(argv[i][1])) {
+                case 'q':
+                    if (argv[i + 1]){
+                        if (argv[i + 1][0] != '-'){
+                            errorQuota = strtod(argv[++i], NULL);
+                            if (errorQuota == HUGE_VAL || errorQuota == -HUGE_VAL || errorQuota < 0)
+                                Usage(argv[0]);
+                            break;
+                        }
+                    }
+                    Usage(argv[0]);
+                    break;
                 case 'a':			//Server Address
                     if (argv[i + 1]) {
                         if (argv[i + 1][0] != '-') {
@@ -353,14 +359,11 @@ int main(int argc, char** argv) {
     while (stay)
     {   
         fd_reset(&fd, ConnSocket);                  // add ConnSocket to struct, needs to be redone before every select
-        tl = add_timer(tl, TIMEOUT, req->SeNr);
-        tv.tv_usec = (long)(tl->timer)*TO*1.2;           // multiply by 1.1 as otherwise our NACK would cross their datapacket
+        if (!tl) tl = add_timer(tl, TIMEOUT, req->SeNr);
+        tv.tv_usec = (long)((tl->timer)*TO*1.2);           // multiply by 1.1 as otherwise our NACK would cross their datapacket
         s = select(0, &fd, 0, 0, &tv);              // if socket is ready or timer expired 
         if (!s) //timer expired
         {
-            SYSTEMTIME st;
-            GetSystemTime(&st);
-            printf("\t\t\t\t\t\t%02d.%d\n", st.wSecond, st.wMilliseconds);
             tl = del_timer(tl, req->SeNr, FALSE);
             ans = answreturn(req, expectedSequence);
             sendAnswer(ans);
@@ -370,6 +373,13 @@ int main(int argc, char** argv) {
         {
             fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
             exit(7);
+        }
+        if (errorQuota >= 0 && (int)(errorQuota*RAND_MAX) > rand() || errorQuota<0 && IGNORE_ARRAY_SIZE > req->SeNr && IGNORE_DATA[req->SeNr])
+        {
+            manipulating = 1;
+            getRequest();
+            manipulating = 0;
+            continue;
         }
         tl = del_timer(tl, req->SeNr, TRUE);
         req = getRequest();

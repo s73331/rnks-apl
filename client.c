@@ -12,6 +12,7 @@
 #include <ctype.h>
 #include <tchar.h>
 #include <ws2tcpip.h>
+#include <math.h>
 #include "file.h"
 #include "local.h"
 #include "print.h"
@@ -22,8 +23,8 @@
 #include "sock.h"
 #include "manipulation.h"
 #pragma comment(lib, "Ws2_32.lib")	
-int packetsOnWay = 0;
 #define BUFLEN 512
+double errorQuota = -1;
 
 struct request req;
 
@@ -413,23 +414,21 @@ int makeRequest(struct request* req, struct answer ans, strlist* strli, int toAn
 int sendRequest(struct request* req, struct answer ans, strlist* strli, int toAnswer, unsigned long* lastSeNr, int* lastData, SOCKET ConnSocket, struct timeouts** timeouts)
 {
     int ret = makeRequest(req, ans, strli, toAnswer, lastSeNr, lastData);
-    if (NOSEND_ARRAY_SIZE > req->SeNr && NOSEND_DATA[req->SeNr])
-    {
-        printReq(*req, 4);
-        NOSEND_DATA[req->SeNr]--;
-        return ret;
-    }
-    int w = sendto(ConnSocket, (const char*)req, sizeof(*req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
-    if (w == SOCKET_ERROR) {
-        fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
-        exit(1);
+    if (errorQuota >= 0 && (int)(errorQuota*RAND_MAX) > rand() || errorQuota<0 && NOSEND_ARRAY_SIZE > req->SeNr && NOSEND_DATA[req->SeNr])
+        printReq(*req, 4);  // act like we sent the packet
+    else
+    {                       // actually send the packet
+        int w = sendto(ConnSocket, (const char*)req, sizeof(*req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
+        if (w == SOCKET_ERROR) {
+            fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
+            exit(1);
+        }
+        printReq(*req, 1);
     }
     *timeouts=del_timer(*timeouts, req->SeNr, TRUE);
     *timeouts = add_timer(*timeouts, 1, req->SeNr+1);       // timer for next packet 
     if (req->ReqType != ReqHello)
         *timeouts = add_timer(*timeouts, TIMEOUT, req->SeNr);   // timer for window
-    printReq(*req, 1);
-    packetsOnWay++;
     return ret;
 }
 int recvfromw(SOCKET ConnSocket, char* buf, size_t len, int flags, struct sockaddr* from, int* fromlen)
@@ -446,7 +445,74 @@ int recvfromw(SOCKET ConnSocket, char* buf, size_t len, int flags, struct sockad
 
 int main(int argc, char *argv[])
 {
+    unsigned long window_size = 1;
+    char* port = DEFAULT_PORT;
+    char* server = DEFAULT_SERVER;
+    char* filename = FILE_TO_READ;
     printf("Sender(Client)\n\n");
+    if (argc > 1) {
+        for (int i = 1; i < argc; i++) {
+            if ((argv[i][0] == '-') || ((argv[i][0] == '/')) && (argv[i][1] != 0) && (argv[i][2] == 0))
+            {
+                switch (tolower(argv[i][1])) {
+                case 'q':
+                    if (argv[i + 1]){
+                        if (argv[i + 1][0] != '-'){
+                            errorQuota = strtod(argv[++i], NULL);
+                            if (errorQuota == HUGE_VAL || errorQuota == -HUGE_VAL || errorQuota < 0) 
+                                Usage(argv[0]);
+                            break;
+                        }
+                    }
+                    Usage(argv[0]);
+                    break;
+                case 'a':			//Server Address
+                    if (argv[i + 1]) {
+                        if (argv[i + 1][0] != '-') {
+                            server = argv[++i];
+                            break;
+                        }
+                    }
+                    Usage(argv[0]);
+                    break;
+                case 'p':			//Server Port
+                    if (argv[i + 1]) {
+                        if (argv[i + 1][0] != '-') {
+                            port = argv[++i];
+                            break;
+                        }
+                    }
+                    Usage(argv[0]);
+                    break;
+                case 'f':			//File Name
+                    if (argv[i + 1]) {
+                        if (argv[i + 1][0] != '-') {
+                            filename = argv[++i];
+                            if (strlen(filename) > 259 || strlen(filename) < 1) Usage(argv[0]);
+                            break;
+                        }
+                    }
+                    Usage(argv[0]);
+                    break;
+                case 'w':			//Window Size
+                    if (argv[i + 1])
+                    {
+                        if (argv[i + 1][0] != '-') {
+                            window_size = strtol(argv[++i], 0, 0);
+                            if (window_size<1 || window_size>10) Usage(argv[0]);
+                            break;
+                        }
+                    }
+                    Usage(argv[0]);
+                    break;
+                default:
+                    Usage(argv[0]);
+                    break;
+                }
+            }
+            else Usage(argv[0]);
+        }
+    }
     struct timeouts* tl=NULL;                   // struct to store our timeouts
     struct answer ans;
     ans.SeNo = 0;
@@ -456,24 +522,33 @@ int main(int argc, char *argv[])
     struct timeval tv;                          // struct for select-timevals
     tv.tv_sec = 0;
     unsigned long window_start =  0;
-    unsigned long window_size  =  1;
     strlist* strli=NULL;                        // struct for our file, which turned into a list of char-arrays (note: NOT strings, not even C-Strings)
     unsigned long lastSeNr = 0;                 // last sequence number we ever sent
     int lastData = 0;                           // 0 still have data, 1 have just read last line, 2 have read last line before
     int HelloAckRecvd = FALSE;
-	initClient(DEFAULT_SERVER, DEFAULT_PORT);
-    if (readfilew(FILE_TO_READ, &strli))
+	initClient(server, port);
+    if (readfilew(filename, &strli))
         fprintf(stderr, "closing file failed\ncontinuing...\n");
     lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, &tl);
     int stay = 1;
     while(stay)
 	{
+        if (!tl)                                //if we have nothing to wait for
+        {
+            if (lastSeNr < window_start + window_size)  // and the window allows us to send a packet
+            {
+                lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, &tl);
+                continue;
+            }
+            continue;
+        }
         SYSTEMTIME st;
         GetSystemTime(&st);
-        printf("%i\t%d\t%d\t", window_start, lastSeNr, tl->seq_nr);
-        printf("\t\t\t%02d.%03d\n", st.wSecond, st.wMilliseconds);
+      //  printf("%i\t%d\t%d\t", window_start, lastSeNr, tl->seq_nr);
+      //  printf("\t\t\t%02d.%03d\n", st.wSecond, st.wMilliseconds);
         if (req.ReqType != ReqClose)                 // the only time when we're truly waiting (NACK or CloseACK)
         {           
+            
             fd_reset(&fd, ConnSocket);               // reset our fd for select
             tv.tv_usec = (tl->timer)*TO;             // get time of shortest timer
             int s = select(0, &fd, 0, 0, &tv);       // select if socket is read or timeout has passed
@@ -498,7 +573,7 @@ int main(int argc, char *argv[])
                     continue;
                 }
               //  tl = del_timer(tl, tl->seq_nr, FALSE);
-                printf("\t\t\t\t%d\n", tl->seq_nr);
+               // printf("\t\t\t\t%d\n", tl->seq_nr);
                /* if (lastSeNr+1 < window_start + window_size)  // if the window allows us to send a packet
                 {
                     lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, &tl);

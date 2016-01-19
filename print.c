@@ -10,7 +10,7 @@ void printAns(struct answer answ, int sent)
     else printf("Received");
     SYSTEMTIME st;
     GetSystemTime(&st);
-    printf("\t%02d.%d\n", st.wSecond, st.wMilliseconds);
+    printf("\t%02d.%03d\n", st.wSecond, st.wMilliseconds);
 }
 void printReq(struct request req, int flag)
 {
