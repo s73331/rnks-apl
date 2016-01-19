@@ -554,6 +554,16 @@ int main(int argc, char *argv[])
             int s = select(0, &fd, 0, 0, &tv);       // select if socket is read or timeout has passed
             if (!s) //timer expired                 
             {    
+                if (req.ReqType == ReqHello)
+                {
+                    if (HelloAckRecvd)
+                    {
+                        tl = del_timer(tl, ans.SeNo, TRUE);
+                        lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, &tl);
+                        window_start++;
+                        continue;
+                    }
+                }
                 if (tl->seq_nr > lastSeNr)          // if it is a packet we haven't sent
                 {
                     if (lastSeNr < window_start + window_size)  // and the window allows us to send one
@@ -590,14 +600,6 @@ int main(int argc, char *argv[])
         switch (ans.AnswType)
         {
             case AnswHello:
-                if (HelloAckRecvd)
-                {
-                    fprintf(stderr, "Received another HelloACK\ncontinuing...\n");
-                    continue;
-                }
-                tl = del_timer(tl, ans.SeNo, TRUE);
-                lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, &tl);
-                window_start++;
                 HelloAckRecvd = 1;
                 break;
             case AnswNACK:
