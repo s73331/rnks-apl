@@ -8,6 +8,8 @@ test for errors (important)
 
 test with multiple servers  
   
-Synchronize Windows ssize of client and server
+synchronize window size of client and server
   
-wait for all CloseACKs
+don't send two packets if there are two NACKs in one 300ms-window  
+  
+solve problem of data packet and NACK crossing, resulting in data packet going twice

@@ -389,16 +389,16 @@ int main(int argc, char** argv) {
         {
             if (req.ReqType == ReqData)
             {
-                insert(&rc, &req);       //put packet in cache
+                insert(&rc, &req);       // put packet in cache
                 printReq(req, 2);
             }
             answreturn(&ans, &req, expectedSequence);
             sendAnswer(&ans);
             continue;
         }
-        if (req.SeNr < expectedSequence) //shit happens
+        if (req.SeNr < expectedSequence) // NACK from other server, we already have this packet
         {
-            fprintf(stderr, "expected no %i, got no %i\n", expectedSequence, req.SeNr);
+            printReq(req, 6);
             continue;
         }
         if (req.ReqType == ReqData)

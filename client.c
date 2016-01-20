@@ -25,11 +25,6 @@
 #pragma comment(lib, "Ws2_32.lib")	
 #define BUFLEN 512
 double errorQuota = 0;
-<<<<<<< HEAD
-=======
-
-struct request req;
->>>>>>> a233d80884a7e0a0d716db0a91e390b7893e2a6d
 
 /****************************************************/
 /*** Declaration socket descriptor "s"          *****/
