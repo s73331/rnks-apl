@@ -19,7 +19,7 @@
 #include "cache.h"
 #include "sock.h"
 #include "timer.h"
-double errorQuota = -1;
+double errorQuota = 0;
 int manipulating = 0;
 #pragma comment(lib, "Ws2_32.lib")				// necessary for the WinSock2 lib
 
