@@ -24,7 +24,7 @@
 #include "manipulation.h"
 #pragma comment(lib, "Ws2_32.lib")	
 #define BUFLEN 512
-double errorQuota = -1;
+double errorQuota = 0;
 
 struct request req;
 
