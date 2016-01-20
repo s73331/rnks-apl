@@ -24,9 +24,7 @@
 #include "manipulation.h"
 #pragma comment(lib, "Ws2_32.lib")	
 #define BUFLEN 512
-double errorQuota = -1;
-
-struct request req;
+double errorQuota = 0;
 
 /****************************************************/
 /*** Declaration socket descriptor "s"          *****/
@@ -187,9 +185,7 @@ getchar();
 }*/
 
 int initClient(char *MCAddress, char *Port) {
-
-
-	int trueValue = 0, loopback = 1; //setsockopt
+    int trueValue = 1, loopback = 1; //setsockopt
 	int val, i = 0;
 	int addr_len;
 	struct ipv6_mreq mreq; //multicast address
@@ -220,7 +216,7 @@ int initClient(char *MCAddress, char *Port) {
 	/* Initialize socket */
 	/* Reusing port for several server listening on same multicast addr and port
 	(if we are testing on local machine only) */
-	setsockopt(ConnSocket, SOL_SOCKET, SO_REUSEADDR, (char *)&trueValue, sizeof(trueValue));
+    setsockopt(ConnSocket, LEVEL, OPTNAME, (char *)&trueValue, sizeof(trueValue));
 
 	/* Resolve multicast group address to join mc group */
 
@@ -287,7 +283,7 @@ int initClient(char *MCAddress, char *Port) {
 	fflush(stdin);
 	getchar();
 	exit(-1);
-	}/*
+	}*/
 
 
 	/****************************************************/
@@ -297,17 +293,17 @@ int initClient(char *MCAddress, char *Port) {
 
 	/* Accept multicast from any interface */
 	// scope ID from Int. -> to get scopeid :netsh int ipv6 sh addr or ipconfig -all
-	mreq.ipv6mr_interface = INADDR_ANY; //my w8 Laptop
+	mreq.ipv6mr_interface = IPV6MR_INTERFACE; //my w8 Laptop
 
-	/*//Join the multicast address (netsh interface ipv6 show joins x)
-	if (setsockopt(ConnSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq, sizeof(mreq)) < 0) {
-	fprintf(stderr, "setsockopt(IPV6_JOIN_GROUP) failed %d\n", WSAGetLastError());
-	WSACleanup();
-	fflush(stdin);
-	getchar();
-	exit(-1);
+	//Join the multicast address (netsh interface ipv6 show joins x)
+	if (setsockopt(ConnSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char*)&mreq, sizeof(mreq)) < 0) 
+    {
+	    fprintf(stderr, "setsockopt(IPV6_JOIN_GROUP) failed %d\n", WSAGetLastError());
+	    WSACleanup();
+	    fflush(stdin);
+	    getchar();
+	    exit(-1);
 	}
-	*/
 
 	freeaddrinfo(resultLocalAddress);
 	//freeaddrinfo(resultMulticastAddress);
@@ -519,13 +515,14 @@ int main(int argc, char *argv[])
     struct request req;  
     req.SeNr = 0;
     fd_set fd;
+    int closeAckRecvd = 0;
     struct timeval tv;                          // struct for select-timevals
     tv.tv_sec = 0;
     unsigned long window_start =  0;
     strlist* strli=NULL;                        // struct for our file, which turned into a list of char-arrays (note: NOT strings, not even C-Strings)
     unsigned long lastSeNr = 0;                 // last sequence number we ever sent
     int lastData = 0;                           // 0 still have data, 1 have just read last line, 2 have read last line before
-    int HelloAckRecvd = FALSE;
+    int helloAckRecvd = 0;
 	initClient(server, port);
     if (readfilew(filename, &strli))
         fprintf(stderr, "closing file failed\ncontinuing...\n");
@@ -556,7 +553,7 @@ int main(int argc, char *argv[])
             {    
                 if (req.ReqType == ReqHello)
                 {
-                    if (HelloAckRecvd)
+                    if (helloAckRecvd)
                     {
                         tl = del_timer(tl, ans.SeNo, TRUE);
                         lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, &tl);
@@ -582,12 +579,6 @@ int main(int argc, char *argv[])
                     tl = del_timer(tl, tl->seq_nr, FALSE);
                     continue;
                 }
-              //  tl = del_timer(tl, tl->seq_nr, FALSE);
-               // printf("\t\t\t\t%d\n", tl->seq_nr);
-               /* if (lastSeNr+1 < window_start + window_size)  // if the window allows us to send a packet
-                {
-                    lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, &tl);
-                }*/
                 continue;
             }
             if (s == SOCKET_ERROR)
@@ -600,14 +591,16 @@ int main(int argc, char *argv[])
         switch (ans.AnswType)
         {
             case AnswHello:
-                HelloAckRecvd = 1;
+                helloAckRecvd++;
                 break;
             case AnswNACK:
                 tl = del_timer(tl, ans.SeNo, TRUE);
                 lastData += sendRequest(&req, ans, strli, ANSWER, &lastSeNr, &lastData, ConnSocket, &tl);
                 continue;
             case AnswClose:
-                stay = 0;
+                closeAckRecvd++;
+                if (helloAckRecvd == closeAckRecvd)
+                    stay = 0;
                 continue;
             default:
                 fprintf(stderr, "not recognized ans.AnswType\nexiting\n");

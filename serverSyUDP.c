@@ -19,7 +19,7 @@
 #include "cache.h"
 #include "sock.h"
 #include "timer.h"
-double errorQuota = -1;
+double errorQuota = 0;
 int manipulating = 0;
 #pragma comment(lib, "Ws2_32.lib")				// necessary for the WinSock2 lib
 
@@ -54,7 +54,7 @@ void Usage(char *ProgName)					// How to use program
 }
 
 int initServer(char *MCAddress, char *Port) {
-	int trueValue = 0, loopback = 1; //setsockopt
+	int trueValue = 1, loopback = 1; //setsockopt
 	int val, i = 0;
 	int addr_len;
 	struct ipv6_mreq mreq; //multicast address
@@ -85,7 +85,7 @@ int initServer(char *MCAddress, char *Port) {
 	/* Initialize socket */
 	/* Reusing port for several server listening on same multicast addr and port
 	(if we are testing on local machine only) */
-	setsockopt(ConnSocket, SOL_SOCKET, SO_REUSEADDR, (char *)&trueValue, sizeof(trueValue));
+	setsockopt(ConnSocket, LEVEL, OPTNAME, (char *)&trueValue, sizeof(trueValue));
 
 	/* Resolve multicast group address to join mc group */
 
@@ -160,7 +160,7 @@ int initServer(char *MCAddress, char *Port) {
 
 	/* Accept multicast from any interface */
 	// scope ID from Int. -> to get scopeid :netsh int ipv6 sh addr or ipconfig -all
-	mreq.ipv6mr_interface = INADDR_ANY; //my w8 Laptop
+	mreq.ipv6mr_interface = IPV6MR_INTERFACE; //my w8 Laptop
 
 	/*Join the multicast address (netsh interface ipv6 show joins x)*/
 	if (setsockopt(ConnSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, (const char*)&mreq, sizeof(mreq)) < 0) {
@@ -409,10 +409,10 @@ int main(int argc, char** argv) {
             {
                 cache* ca = get(&rc);                   // get it out
                 strl = addtolist(strl, ca->req.name);   // and store its string
+                printReq(ca->req, 3);
                 free(ca);
                 ca = NULL;
                 expectedSequence++;
-                printReq(ca->req, 3);
             }
             continue;
         }
