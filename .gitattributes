@@ -1,2 +1,4 @@
 # always use crlf as end of line
 * text eol=crlf
+# always use spaces
+* filter=spabs
