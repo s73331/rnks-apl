@@ -14,11 +14,12 @@ void printAns(struct answer answ, int sent)
 }
 void printReq(struct request req, int flag)
 {
-	if (flag == 7) 
-	{	req.SeNr++; 
-		req.ReqType = 'W'; 
-	}
-	printf("Request\tNo: %i\ttype: %c\tstatus: ", req.SeNr, req.ReqType);
+    if (flag == 7) 
+    {
+        req.SeNr++; 
+        req.ReqType = 'W'; 
+    }
+    printf("Request\tNo: %i\ttype: %c\tstatus: ", req.SeNr, req.ReqType);
 
     switch (flag)
     {
@@ -36,8 +37,8 @@ void printReq(struct request req, int flag)
         break;
     case 6: printf("Ignored\t");
         break;
-	case 7: printf("Waiting\t");
-		break;
+    case 7: printf("Waiting\t");
+        break;
     default:
         fprintf(stderr, "passed invalid flag to printReq(): %i", flag);
     }
@@ -49,9 +50,10 @@ void printReq(struct request req, int flag)
         char buf[PufferSize + 1];
         strncpy(buf, req.name, 10);
         buf[10] = 0;                    // got no more space
-		for (int i = 0; i < 10; i++){
-			if(buf[i] < 32) buf[i]=' ';
-		}
+        for (int i = 0; i < 10; i++)
+	{
+            if(buf[i] < 32) buf[i]=' ';
+        }
         printf("\tdata: %s", buf);
     }
     printf("\n");
