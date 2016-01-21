@@ -568,10 +568,14 @@ int main(int argc, char *argv[])
                         lastData += sendRequest(&req, ans, strli, INITIAL, &lastSeNr, &lastData, ConnSocket, &tl);
                         continue;
                     }
-                    int seq = tl->seq_nr;
-                    tl = del_timer(tl, tl->seq_nr, FALSE);
-                    tl = add_timer(tl, 1, seq);
-                    continue;
+					else 
+					{						// lost interval (waiting for timout or NACK)
+						int seq = tl->seq_nr;
+						tl = del_timer(tl, tl->seq_nr, FALSE);
+						tl = add_timer(tl, 1, seq);
+						printReq(req, 7);  
+						continue;
+					}
                 }
                 else if (window_start < tl->seq_nr || tl->seq_nr==1)
                 {
