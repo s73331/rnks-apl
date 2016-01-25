@@ -361,8 +361,8 @@ int main(int argc, char** argv) {
     while (stay)
     {   
         fd_reset(&fd, ConnSocket);                  // add ConnSocket to struct, needs to be redone before every select
-        if (!tl) tl = add_timer(tl, TIMEOUT, req.SeNr);
-        tv.tv_usec = (long)((tl->timer)*TO+150*1000);// add 150millis as otherwise our NACK would cross their datapacket
+        if (!tl) tl = add_timer(tl, TIMEOUT_MULTI, req.SeNr);
+        tv.tv_usec = (long)((tl->timer)*INT_MS+150*1000);// add 150millis as otherwise our NACK would cross their datapacket
         s = select(0, &fd, 0, 0, &tv);              // if socket is ready or timer expired 
         if (!s) //timer expired
         {

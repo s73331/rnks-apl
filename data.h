@@ -2,9 +2,9 @@
 /* for Client and Server */
 
 
-#define TIMEOUT_INT 300             // in Milliseconds
-#define TO TIMEOUT_INT*1000         // in Microseconds
-#define TIMEOUT 3                   // must be a multiple of TIMEOUT_INT
+#define INTERVAL 300             // in Milliseconds
+#define INT_MS INTERVAL*1000         // in Microseconds
+#define TIMEOUT_MULTI 3                   // must be a multiple of TIMEOUT_INT
 #define MAX_WINDOW 10               // maximum windows size
 #define MAX_SEQNR 2*MAX_WINDOW-1    /* maximum sequence number --> real maximum sequence number
                                        is 2 times of the choosen real window size!!*/
@@ -12,12 +12,6 @@
 #define PufferSize 256
 
 extern char *errorTable[];
-
-
-#define MAKE     1
-#define DONTMAKE 0
-#define ANSWER   1
-#define INITIAL  0
 
 struct request {
     unsigned char ReqType;
@@ -48,6 +42,7 @@ typedef struct _strlist
     char str[PufferSize];
     struct _strlist* next;
 }strlist;
+
 typedef struct _cache
 {
     struct request req;
