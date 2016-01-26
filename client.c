@@ -241,7 +241,7 @@ int makeRequest(struct request* req, strlist* strli, unsigned long* lastSeNr, in
 int sendRequest(struct request* req, strlist* strli, unsigned long* lastSeNr, int* lastData, SOCKET ConnSocket)
 {
     int ret = makeRequest(req, strli, lastSeNr, lastData);
-    if (errorQuota >= 0 && (int)(errorQuota*RAND_MAX) > rand() || errorQuota<0 && NOSEND_ARRAY_SIZE > req->SeNr && NOSEND_DATA[req->SeNr])
+    if ((errorQuota > 0 && errorQuota <= 1 && (int)(errorQuota*RAND_MAX) > rand() || errorQuota == 2 && NOSEND_ARRAY_SIZE > req->SeNr && NOSEND_DATA[req->SeNr] )&& req->ReqType != ReqClose)
         printReq(*req, 4);  // act like we sent the packet
     else
     {                       // actually send the packet
@@ -255,9 +255,9 @@ int sendRequest(struct request* req, strlist* strli, unsigned long* lastSeNr, in
     return ret;
 }
 
-sendHello(struct request* req, SOCKET ConnSocket)
+sendHello(struct request* req, SOCKET ConnSocket, int window_size)
 {
-    req->FlNr = 1;
+    req->FlNr = window_size;
     req->ReqType = ReqHello;
     int w = sendto(ConnSocket, (const char*)req, sizeof(*req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
     if (w == SOCKET_ERROR) {
@@ -305,7 +305,7 @@ int recvfromw(SOCKET ConnSocket, char* buf, size_t len, int flags, struct sockad
 
 int main(int argc, char *argv[])
 {
-    unsigned long window_size = 1;
+    unsigned int window_size = 1;
     char* port = DEFAULT_PORT;
     char* server = DEFAULT_SERVER;
     char* filename = FILE_TO_READ;
@@ -383,50 +383,49 @@ int main(int argc, char *argv[])
     /***END User Interface ***/
     /****************************************************/
 
-    struct timeouts* tl = NULL;                   // struct to store our timeouts
-    int markedWindow[10] = { 0 };               //Fenster Max 10
-    struct answer ans;
+    struct timeouts* tl = NULL;                 // struct to store our timeouts (relative geordnete verkettete Liste)
+    int markedWindow[10] = { 0 };               // Array um Timeouts zu markieren die nicht am untern ende des Fenstern liegen
+    unsigned int windowBase;                    // Base (unter Grenze) unseres Fensters | mit window_size ist Fenster definiert
+    struct answer ans;                          // struct für NAck "Antworten
     ans.SeNo = 0;
-    SYSTEMTIME st;
-    struct request req;
+    SYSTEMTIME st, st2;
+    struct request req;                         // struct für Sendungen
     req.SeNr = 0;
-    fd_set fd;
-    int closeAckRecvd = 0;
+    int closeAckRecvd = 0;                      // Zähler der Empfangenen CLoseAck
+    fd_set fd;                                  // socket übergabe an select
     struct timeval tv;                          // struct for select-timevals
     tv.tv_sec = 0;
     tv.tv_usec = INT_MS;						// set Time of one interval (default: 3000 ms)
-    unsigned long window_start = 0;
-    strlist* strli = NULL;                        // struct for our file, which turned into a list of char-arrays (note: NOT strings, not even C-Strings)
+    strlist* strli = NULL;                      // struct for our file, which turned into a list of char-arrays (note: NOT strings, not even C-Strings)
     unsigned long lastSeNr = 0;                 // last sequence number we ever sent
     int lastData = 0;                           // 0 still have data, 1 have just read last line, 2 have read last line before
-    int helloAckRecvd = 0;
-    initClient(server, port);
-    if (readfilew(filename, &strli))
-        fprintf(stderr, "closing file failed\ncontinuing...\n");
+    int helloAckRecvd = 0;                      // Zähler für Empfangene HelloAck = verbundene  Server
 
     /****************************************************/
     /***Verbindungaufbau ***/
     /****************************************************/
 
-    while (!helloAckRecvd)
+    initClient(server, port);
+    if (readfilew(filename, &strli))
+        fprintf(stderr, "closing file failed\ncontinuing...\n");
+
+    while (!helloAckRecvd)                                                   // Hello senden bis sich ein Server anmeldet
     {
-        sendHello(&req, ConnSocket);
+        sendHello(&req, ConnSocket, window_size);
         fd_reset(&fd, ConnSocket);
-        int s = select(0, &fd, 0, 0, &tv);       // select if socket is read or a interval has passed
-        if (!s) //timer expired keine Antwort empfangen                 
+        int s = select(0, &fd, 0, 0, &tv);                                   // select if socket is read or a interval has passed
+        if (!s)                                                              // timer expired kein Hello empfangen                 
         {
             continue;
         }
         else
         {
-            //Prüfen auf Socket-Fehler
             if (s == SOCKET_ERROR)
             {
                 fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
                 exit(7);
             }
-            //Abholen der Antwort
-            recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
+            recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);        // Abholen der Antwort
             if (ans.AnswType == AnswHello)
             {
                 helloAckRecvd++;
@@ -436,63 +435,69 @@ int main(int argc, char *argv[])
             }
         }
     }
-    window_start++;
+    windowBase = 1;                                                          // Fenster wird initialisiert mit base = 1 
 
     /****************************************************/
-    /***Datenversand ***/
+    /***Sende und Empfangsschleife (bessere bezeichung??) ***/
     /****************************************************/
 
     int stay = 1;
-    while (stay)
+    while (stay)                                                             // sende und empfange bis #closeAck == #HelloAck
     {
         GetSystemTime(&st);
-        printf("%i\t%d\n", window_start, lastSeNr);
-        if (req.ReqType != ReqClose)                 // the only time when we're truly waiting (NACK or CloseACK)
+        //printf("%02d.%03d \t %02d\n", st.wSecond, st.wMilliseconds, windowBase);
+        if (req.ReqType != ReqClose)                                         // the only time when we're truly waiting (NACK or CloseACK)
         {
-            fd_reset(&fd, ConnSocket);               // reset our fd for select
-            tv.tv_usec = INT_MS;					 // set Time of one interval (default: 3000 ms)
-            int s = select(0, &fd, 0, 0, &tv);       // select if socket is read or a interval has passed
-            if (!s) //interval passed                 
+            fd_reset(&fd, ConnSocket);                                       // reset our fd for select
+            tv.tv_usec = INT_MS;					                         // set Time of one interval (default: 3000 ms)
+            GetSystemTime(&st);
+            int s = select(0, &fd, 0, 0, &tv);                               // select if socket is read or a interval has passed
+            if (!s)                                                          // ein Interval ist vergangen ohne Empfang auf Socket                 
             {
 
-                // nur erstes element in Timeout Dekrementieren (es ist eine relative geordnete verkettete Liste)
-                //Schauen ob etwas Null geworden ist
-                //Fenster um diese Wert weiterschieben
+                /****************************************************/
+                /***Timerverwaltung nach einem Interval ***/
+                /****************************************************/
 
-                if (decrement_timer(tl) != -1){
-                    while (tl != NULL && tl->timer == 0)
+                if (decrement_timer(tl) != -1){                              // Wenn Timer verhanden sind decrementieren
+                    while (tl != NULL && tl->timer == 0)                     // Abgelaufene Timer entfernen, Fenster weiterschieben oder Markieren
                     {
-                        if (tl->seq_nr == window_start)   //abgelaufener timer ist Fenster untergrenze -> Fenster weiterschieben
+                        if (tl->seq_nr == windowBase)                        // Timer für Base ist abgelaufen -> Fenster weiterschieben
                         {
-                            window_start++;
+                            windowBase++;
                             tl = del_timer(tl, tl->seq_nr, FALSE);
-                            for (int i = 0; i < 10; i++)           //prüfen ob nächster Wert im Fenster schon markiert ist
+                            for (int i = 0; i < 10; i++)                     // Wenn neuer Base schon markiert ist Fenster weiterschieben
                             {
-                                if (markedWindow[i] == window_start)
+                                if (markedWindow[i] == windowBase)
                                 {
-                                    window_start++;
+                                    windowBase++;
                                     markedWindow[i] = 0;
                                 }
                             }
                         }
-                        else{
-                            int i = 0;          //Wegen NACK nicht untergrenze -> Markieren dass dieser Wert ein Timeout hat
-                            while (markedWindow[i] != 0)           //prüfen ob nächster Wert im Fenster schon markiert ist
+                        else{                                                // Timeout SN nicht BaseSN -> Markieren dass dieser Wert ein Timeout hat
+                            int i = 0;                                       
+                            while (markedWindow[i] != 0)
                             {
                                 i++;
                             }
                             markedWindow[i] = tl->seq_nr;
-                            tl = del_timer(tl, tl->seq_nr, FALSE);  //und erst entfernen wenn dieser wert Untergrenze ist
+                            tl = del_timer(tl, tl->seq_nr, FALSE);
 
                         }
                     }
                 }
-                if (lastSeNr < window_start + (window_size - 1))  // and the window allows us to send one
+
+                /****************************************************/
+                /***Normaler Datenversand***/
+                /****************************************************/
+
+                if (lastSeNr < windowBase + (window_size - 1))               // nächstes paket liegt im Fenster -> Senden + Timer anlegen
                 {
                     lastData += sendRequest(&req, strli, &lastSeNr, &lastData, ConnSocket);
                     tl = add_timer(tl, TIMEOUT_MULTI, req.SeNr);
                 }
-                else											// lost interval (waiting for timout or NACK)
+                else											             // lost interval (waiting for new base or NACK)
                 {
                     printReq(req, 7);
                 }
@@ -506,7 +511,7 @@ int main(int argc, char *argv[])
         }
 
         /****************************************************/
-        /***Reagieren auf Datenempfang ***/
+        /***Datenempfang -> Interval unterbrochen ***/
         /****************************************************/
 
         recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
@@ -516,15 +521,24 @@ int main(int argc, char *argv[])
             helloAckRecvd++;
             break;
         case AnswNACK:
-            if (ans.SeNo >= window_start && ans.SeNo <= window_start + (window_size - 1))
-            {                                                 //angefordertes Paket lieg im Fenster
+            if (ans.SeNo >= windowBase && ans.SeNo <= windowBase + (window_size - 1))
+            {                                                                // NAck fordert Paket aus dem aktuellen Fenster
                 tl = del_timer(tl, ans.SeNo, TRUE);
+                GetSystemTime(&st2);                                         //Zeit bis zum wirklichen Intervalende auffüllen
+                int passed = st2.wMilliseconds - st.wMilliseconds;
+                if (passed < 0) passed += 1000;
+                if (passed < 300) Sleep(300 - passed);
                 sendDataAgain(&req, ans, strli, ConnSocket);
                 tl = add_timer(tl, TIMEOUT_MULTI, req.SeNr);
             }
             else
-            {//Außerhalb des Fensters
-                //Send fick dich Server
+            {												                 // NAck fordert paket außerhalb des Fensters
+                lastData = 2;								                 // Flag für Verbindung beenden -> close Ack senden
+                req.ReqType = 'O';
+                lastSeNr = 0;
+                printReq(req, 8);
+                lastData += sendRequest(&req, strli, &lastSeNr, &lastData, ConnSocket);
+                exit(5);
             }
             continue;
         case AnswClose:
