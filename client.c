@@ -32,18 +32,19 @@ double errorQuota = 0;
 SOCKET ConnSocket;
 
 /****************************************************/
-/***Declaration of socket addresss "local" static ***/
+/*** Declaration of socket addresss "local" static ***/
 /****************************************************/
 static struct sockaddr_in6 localAddr;
 struct sockaddr *sockaddr_ip6_local = NULL;
 
 /****************************************************/
-/***Declaration of socket address "remote" static ***/
+/*** Declaration of socket address "remote" static ***/
 /****************************************************/
 static struct addrinfo *resultMulticastAddress = NULL;
 
 
-void Usage(char *ProgName)                                      // How to use program
+/*** Display how to use the program ***/
+void Usage(char *ProgName)          
 {
     fprintf(stderr, P_Message_1);
     fprintf(stderr, P_Message_6, ProgName);
@@ -82,11 +83,12 @@ int printAnswer(struct answer *answPtr) {
     return answPtr->AnswType;
 }
 
+/*** Initialize the Client ***/
 int initClient(char *MCAddress, char *Port) {
-    int trueValue = 1, loopback = 1; //setsockopt
+    int trueValue = 1, loopback = 1; // for setsockopt
     int val, i = 0;
     int addr_len;
-    struct ipv6_mreq mreq; //multicast address
+    struct ipv6_mreq mreq; //define multicast address pickup struct
     struct addrinfo *resultLocalAddress = NULL, *ptr = NULL, hints;
 
     WSADATA wsaData;
@@ -100,8 +102,8 @@ int initClient(char *MCAddress, char *Port) {
     }
 
     /****************************************************/
-    /***Create Socket,                                ***/
-    /***connectionless service, addresss family INET6 ***/
+    /*** Create Socket,                                ***/
+    /*** connectionless service, addresss family INET6 ***/
     /****************************************************/
     ConnSocket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 
@@ -117,24 +119,25 @@ int initClient(char *MCAddress, char *Port) {
     setsockopt(ConnSocket, LEVEL, OPTNAME, (char *)&trueValue, sizeof(trueValue));
 
     /* Resolve multicast group address to join mc group */
-
     ZeroMemory(&hints, sizeof(hints));
     hints.ai_family = AF_INET6;
     hints.ai_flags = AI_NUMERICHOST;
-    if (getaddrinfo(MCAddress, Port, &hints, &resultMulticastAddress) != 0) {                                       //TODO: sendet nur an DEFAULT_PORT
-        fprintf(stderr, "getaddrinfo MCAddress fauled with error: %d\n", WSAGetLastError());
+	
+	
+    if (getaddrinfo(MCAddress, Port, &hints, &resultMulticastAddress) != 0) {
+        fprintf(stderr, "getaddrinfo MCAddress failed with error: %d\n", WSAGetLastError());
         WSACleanup();
         exit(-1);
     }
 
 
-    /* Resolve local address (anyaddr) to bind*/
+    /* Resolve local address to bind */
     ZeroMemory(&hints, sizeof(hints));
     hints.ai_family = AF_INET6;
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_protocol = IPPROTO_UDP;
 
-    hints.ai_flags = AI_PASSIVE; // localhost
+    hints.ai_flags = AI_PASSIVE; 		// localhost
 
     val = getaddrinfo(NULL, Port, &hints, &resultLocalAddress);
 
@@ -144,7 +147,8 @@ int initClient(char *MCAddress, char *Port) {
         exit(-1);
     }
 
-    //Retrive the address and print  out the hex bytes
+	
+    /* Retrive the address and print  out the hex bytes */
     for (ptr = resultLocalAddress; ptr != NULL; ptr = ptr->ai_next) {
         printf("getaddrinfo response %d\n", i++);
         printf("\tFlags: 0x%x\n", ptr->ai_flags);
@@ -175,25 +179,19 @@ int initClient(char *MCAddress, char *Port) {
     /****************************************************/
     printf("in bind\n");
 
-    /*if (bind(ConnSocket, sockaddr_ip6_local, addr_len) == SOCKET_ERROR) {
-    fprintf(stderr, "bind() failed: error %d\n", WSAGetLastError());
-    WSACleanup();
-    fflush(stdin);
-    getchar();
-    exit(-1);
-    }*/
-
 
     /****************************************************/
     /* Specify the multicast group                      */
     /****************************************************/
     memcpy(&mreq.ipv6mr_multiaddr, &((struct sockaddr_in6*)(resultMulticastAddress->ai_addr))->sin6_addr, sizeof(mreq.ipv6mr_multiaddr));
 
-    /* Accept multicast from any interface */
-    // scope ID from Int. -> to get scopeid :netsh int ipv6 sh addr or ipconfig -all
-    mreq.ipv6mr_interface = IPV6MR_INTERFACE; //my w8 Laptop
+	
+    /* Accept multicast from any interface 
+       scope ID from Int. -> to get scopeid :netsh int ipv6 sh addr or ipconfig -all */
+    mreq.ipv6mr_interface = IPV6MR_INTERFACE;
 
-    //Join the multicast address (netsh interface ipv6 show joins x)
+	
+    /*Join the multicast address frame (netsh interface ipv6 show joins x) */
     if (setsockopt(ConnSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char*)&mreq, sizeof(mreq)) < 0)
     {
         fprintf(stderr, "setsockopt(IPV6_JOIN_GROUP) failed %d\n", WSAGetLastError());
@@ -203,6 +201,7 @@ int initClient(char *MCAddress, char *Port) {
         exit(-1);
     }
 
+	
     freeaddrinfo(resultLocalAddress);
     //freeaddrinfo(resultMulticastAddress);
 
@@ -228,7 +227,7 @@ int makeRequest(struct request* req, strlist* strli, unsigned long* lastSeNr, in
     char buf[PufferSize + 1];
     buf[PufferSize] = 0;
     int gl;
-    gl = getline(strli, req->SeNr - 1, buf); //-1, as SeNo=0 is not data
+    gl = getline(strli, req->SeNr - 1, buf); 	//-1, as SeNo=0 is not data
     if (gl < 0)
     {
         fprintf(stderr, "getting line failed with error code %i\nrequested line: %i\nexiting...", gl, req->SeNr - 1);
@@ -238,13 +237,17 @@ int makeRequest(struct request* req, strlist* strli, unsigned long* lastSeNr, in
     return gl;
 }
 
+
 int sendRequest(struct request* req, strlist* strli, unsigned long* lastSeNr, int* lastData, SOCKET ConnSocket)
 {
     int ret = makeRequest(req, strli, lastSeNr, lastData);
-    if ((errorQuota > 0 && errorQuota <= 1 && (int)(errorQuota*RAND_MAX) > rand() || errorQuota == 2 && NOSEND_ARRAY_SIZE > req->SeNr && NOSEND_DATA[req->SeNr] )&& req->ReqType != ReqClose)
-        printReq(*req, 4);  // act like we sent the packet
+    
+	/* Error Quota implementation with fake packets */
+	if ((errorQuota > 0 && errorQuota <= 1 && (int)(errorQuota*RAND_MAX) > rand() || errorQuota == 2 && NOSEND_ARRAY_SIZE > req->SeNr && NOSEND_DATA[req->SeNr] )&& req->ReqType != ReqClose)
+        printReq(*req, 4);  	// act like we sent the packet
     else
-    {                       // actually send the packet
+    {                       
+		// Actually send the packet
         int w = sendto(ConnSocket, (const char*)req, sizeof(*req), 0, resultMulticastAddress->ai_addr, resultMulticastAddress->ai_addrlen);
         if (w == SOCKET_ERROR) {
             fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
@@ -274,7 +277,7 @@ sendDataAgain(struct request* req, struct answer ans, strlist* strli, SOCKET Con
     char buf[PufferSize + 1];
     buf[PufferSize] = 0;
     int gl = getline(strli, req->SeNr - 1, buf);
-    if (gl == -2)            //Close NACK wurde nochmal angefordert
+    if (gl == -2)            							//Close NACK requested again
         req->ReqType = ReqClose;
     else if(gl == -1)
     {
@@ -311,7 +314,7 @@ int main(int argc, char *argv[])
     char* filename = FILE_TO_READ;
 
     /****************************************************/
-    /***User Interface ***/
+    /*** User Interface ***/
     /****************************************************/
 
     printf("Sender(Client)\n\n");
@@ -379,53 +382,57 @@ int main(int argc, char *argv[])
         }
     }
 
+	
     /****************************************************/
-    /***END User Interface ***/
+    /*** END User Interface ***/
     /****************************************************/
 
     struct timeouts* tl = NULL;                 // struct to store our timeouts (relative geordnete verkettete Liste)
-    int markedWindow[10] = { 0 };               // Array um Timeouts zu markieren die nicht am untern ende des Fenstern liegen
-    unsigned int windowBase;                    // Base (unter Grenze) unseres Fensters | mit window_size ist Fenster definiert
-    struct answer ans;                          // struct für NAck "Antworten
+    int markedWindow[10] = { 0 };               // Array to mark timeouts which are not at the bottom end of the window
+    unsigned int windowBase;                    // Base (lower border) of the Window | window_size defines window
+    struct answer ans;                          // struct for NACK-Answers
     ans.SeNo = 0;
     SYSTEMTIME st, st2;
-    struct request req;                         // struct für Sendungen
+    struct request req;                         // struct for Send
     req.SeNr = 0;
-    int closeAckRecvd = 0;                      // Zähler der Empfangenen CLoseAck
-    fd_set fd;                                  // socket übergabe an select
+    int closeAckRecvd = 0;                      // Counter of recieved CloseAcks
+    fd_set fd;                                  // Socket handover to select
     struct timeval tv;                          // struct for select-timevals
     tv.tv_sec = 0;
     tv.tv_usec = INT_MS;						// set Time of one interval (default: 3000 ms)
     strlist* strli = NULL;                      // struct for our file, which turned into a list of char-arrays (note: NOT strings, not even C-Strings)
     unsigned long lastSeNr = 0;                 // last sequence number we ever sent
     int lastData = 0;                           // 0 still have data, 1 have just read last line, 2 have read last line before
-    int helloAckRecvd = 0;                      // Zähler für Empfangene HelloAck = verbundene  Server
+    int helloAckRecvd = 0;                      // Counter of recieved HelloAcks = connected Servers / Listeners
 
+	
     /****************************************************/
-    /***Verbindungaufbau ***/
+    /*** Establish a Connection ***/
     /****************************************************/
 
     initClient(server, port);
     if (readfilew(filename, &strli))
         fprintf(stderr, "closing file failed\ncontinuing...\n");
-
-    while (!helloAckRecvd)                                                   // Hello senden bis sich ein Server anmeldet
+	
+    while (!helloAckRecvd)                                     			// Send Hello's until we have recieved Listeners            
     {
         sendHello(&req, ConnSocket, window_size);
         fd_reset(&fd, ConnSocket);
-        int s = select(0, &fd, 0, 0, &tv);                                   // select if socket is read or a interval has passed
-        if (!s)                                                              // timer expired kein Hello empfangen                 
+		
+        int s = select(0, &fd, 0, 0, &tv);       						// select if socket is read or a interval has passed
+		
+        if (!s)                                                                             
         {
-            continue;
-        }
-        else
+            continue;													// timer expired no Hello recieved
+        }	
+        else															// something on the select
         {
             if (s == SOCKET_ERROR)
             {
                 fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
                 exit(7);
             }
-            recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);        // Abholen der Antwort
+            recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);   // Get the Answer    
             if (ans.AnswType == AnswHello)
             {
                 helloAckRecvd++;
@@ -435,14 +442,16 @@ int main(int argc, char *argv[])
             }
         }
     }
-    windowBase = 1;                                                          // Fenster wird initialisiert mit base = 1 
+    windowBase = 1;                                                     // Window initialized with base = 1
 
+	
     /****************************************************/
-    /***Sende und Empfangsschleife (bessere bezeichung??) ***/
+    /*** Sending und Recieving - Loop 				  ***/
     /****************************************************/
 
     int stay = 1;
-    while (stay)                                                             // sende und empfange bis #closeAck == #HelloAck
+	
+    while (stay)															 // send and recieve until #closeAck == #HelloAck
     {
         GetSystemTime(&st);
         //printf("%02d.%03d \t %02d\n", st.wSecond, st.wMilliseconds, windowBase);
@@ -452,21 +461,20 @@ int main(int argc, char *argv[])
             tv.tv_usec = INT_MS;					                         // set Time of one interval (default: 3000 ms)
             GetSystemTime(&st);
             int s = select(0, &fd, 0, 0, &tv);                               // select if socket is read or a interval has passed
-            if (!s)                                                          // ein Interval ist vergangen ohne Empfang auf Socket                 
+            if (!s)                                                          // interval passed without the socket recieved anything                
             {
-
                 /****************************************************/
-                /***Timerverwaltung nach einem Interval ***/
+                /*** Timer-Management after an interval ***/
                 /****************************************************/
 
-                if (decrement_timer(tl) != -1){                              // Wenn Timer verhanden sind decrementieren
-                    while (tl != NULL && tl->timer == 0)                     // Abgelaufene Timer entfernen, Fenster weiterschieben oder Markieren
+                if (decrement_timer(tl) != -1){                              // decrement when there are timers
+                    while (tl != NULL && tl->timer == 0)                     // remove passed timers, mark or push-forward the window
                     {
-                        if (tl->seq_nr == windowBase)                        // Timer für Base ist abgelaufen -> Fenster weiterschieben
+                        if (tl->seq_nr == windowBase)                        // timer for base has passed -> push-forward the window
                         {
                             windowBase++;
                             tl = del_timer(tl, tl->seq_nr, FALSE);
-                            for (int i = 0; i < 10; i++)                     // Wenn neuer Base schon markiert ist Fenster weiterschieben
+                            for (int i = 0; i < 10; i++)                     // wenn a new base is already marked -> push-forward the window
                             {
                                 if (markedWindow[i] == windowBase)
                                 {
@@ -475,7 +483,7 @@ int main(int argc, char *argv[])
                                 }
                             }
                         }
-                        else{                                                // Timeout SN nicht BaseSN -> Markieren dass dieser Wert ein Timeout hat
+                        else{                                                // Timeout SN != BaseSN -> Add mark that this value has a timeout
                             int i = 0;                                       
                             while (markedWindow[i] != 0)
                             {
@@ -489,10 +497,10 @@ int main(int argc, char *argv[])
                 }
 
                 /****************************************************/
-                /***Normaler Datenversand***/
+                /*** Usual Datasend								  ***/
                 /****************************************************/
 
-                if (lastSeNr < windowBase + (window_size - 1))               // nächstes paket liegt im Fenster -> Senden + Timer anlegen
+                if (lastSeNr < windowBase + (window_size - 1))               // Next packet is in the window -> send it and add timer
                 {
                     lastData += sendRequest(&req, strli, &lastSeNr, &lastData, ConnSocket);
                     tl = add_timer(tl, TIMEOUT_MULTI, req.SeNr);
@@ -511,7 +519,7 @@ int main(int argc, char *argv[])
         }
 
         /****************************************************/
-        /***Datenempfang -> Interval unterbrochen ***/
+        /*** Data-Recieve -> Interval interrupted ***/
         /****************************************************/
 
         recvfromw(ConnSocket, (char*)&ans, sizeof(ans), 0, 0, 0);
@@ -522,9 +530,9 @@ int main(int argc, char *argv[])
             break;
         case AnswNACK:
             if (ans.SeNo >= windowBase && ans.SeNo <= windowBase + (window_size - 1))
-            {                                                                // NAck fordert Paket aus dem aktuellen Fenster
+            {                                                                // NAck demands packet from current window
                 tl = del_timer(tl, ans.SeNo, TRUE);
-                GetSystemTime(&st2);                                         //Zeit bis zum wirklichen Intervalende auffüllen
+                GetSystemTime(&st2);                                         // fill time until the true interval-end
                 int passed = st2.wMilliseconds - st.wMilliseconds;
                 if (passed < 0) passed += 1000;
                 if (passed < 300) Sleep(300 - passed);
@@ -532,8 +540,8 @@ int main(int argc, char *argv[])
                 tl = add_timer(tl, TIMEOUT_MULTI, req.SeNr);
             }
             else
-            {												                 // NAck fordert paket außerhalb des Fensters
-                lastData = 2;								                 // Flag für Verbindung beenden -> close Ack senden
+            {												                 // NAck demands packet from other window
+                lastData = 2;								                 // set Flag for connection close -> send closeAck
                 req.ReqType = 'O';
                 lastSeNr = 0;
                 printReq(req, 8);
