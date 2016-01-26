@@ -19,6 +19,7 @@ void printReq(struct request req, int flag)
         req.SeNr++; 
         req.ReqType = 'W'; 
     }
+
     printf("Request\tNo: %i\ttype: %c\tstatus: ", req.SeNr, req.ReqType);
 
     switch (flag)
@@ -39,6 +40,8 @@ void printReq(struct request req, int flag)
         break;
     case 7: printf("Waiting\t");
         break;
+	case 8: printf("out of Window\t");
+		break;
     default:
         fprintf(stderr, "passed invalid flag to printReq(): %i", flag);
     }

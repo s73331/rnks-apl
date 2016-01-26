@@ -24,28 +24,15 @@
 #include "manipulation.h"
 #pragma comment(lib, "Ws2_32.lib")      
 #define BUFLEN 512
-double errorQuota = 0;
 
-/****************************************************/
-/*** Declaration socket descriptor "s"          *****/
-/****************************************************/
-SOCKET ConnSocket;
-
-/****************************************************/
-/*** Declaration of socket addresss "local" static ***/
-/****************************************************/
-static struct sockaddr_in6 localAddr;
+SOCKET ConnSocket;                                                           //Declaration socket descriptor "s" 
+static struct sockaddr_in6 localAddr;                                        //Declaration of socket addresss "local" static
 struct sockaddr *sockaddr_ip6_local = NULL;
-
-/****************************************************/
-/*** Declaration of socket address "remote" static ***/
-/****************************************************/
-static struct addrinfo *resultMulticastAddress = NULL;
+static struct addrinfo *resultMulticastAddress = NULL;                       //Declaration of socket address "remote" static
 
 
-/*** Display how to use the program ***/
 void Usage(char *ProgName)          
-{
+{                                                   /*** Display how to use the program ***/
     fprintf(stderr, P_Message_1);
     fprintf(stderr, P_Message_6, ProgName);
     fprintf(stderr, P_Message_7, (DEFAULT_SERVER == NULL) ? "loopback address" : DEFAULT_SERVER);
@@ -83,7 +70,6 @@ int printAnswer(struct answer *answPtr) {
     return answPtr->AnswType;
 }
 
-/*** Initialize the Client ***/
 int initClient(char *MCAddress, char *Port) {
     int trueValue = 1, loopback = 1; // for setsockopt
     int val, i = 0;
@@ -237,8 +223,7 @@ int makeRequest(struct request* req, strlist* strli, unsigned long* lastSeNr, in
     return gl;
 }
 
-
-int sendRequest(struct request* req, strlist* strli, unsigned long* lastSeNr, int* lastData, SOCKET ConnSocket)
+int sendRequest(struct request* req, strlist* strli, unsigned long* lastSeNr, int* lastData, SOCKET ConnSocket, double errorQuota)
 {
     int ret = makeRequest(req, strli, lastSeNr, lastData);
     
@@ -309,6 +294,7 @@ int recvfromw(SOCKET ConnSocket, char* buf, size_t len, int flags, struct sockad
 int main(int argc, char *argv[])
 {
     unsigned int window_size = 1;
+    double errorQuota = 0;
     char* port = DEFAULT_PORT;
     char* server = DEFAULT_SERVER;
     char* filename = FILE_TO_READ;
@@ -502,7 +488,7 @@ int main(int argc, char *argv[])
 
                 if (lastSeNr < windowBase + (window_size - 1))               // Next packet is in the window -> send it and add timer
                 {
-                    lastData += sendRequest(&req, strli, &lastSeNr, &lastData, ConnSocket);
+                    lastData += sendRequest(&req, strli, &lastSeNr, &lastData, ConnSocket, errorQuota);
                     tl = add_timer(tl, TIMEOUT_MULTI, req.SeNr);
                 }
                 else											             // lost interval (waiting for new base or NACK)
@@ -545,7 +531,7 @@ int main(int argc, char *argv[])
                 req.ReqType = 'O';
                 lastSeNr = 0;
                 printReq(req, 8);
-                lastData += sendRequest(&req, strli, &lastSeNr, &lastData, ConnSocket);
+                lastData += sendRequest(&req, strli, &lastSeNr, &lastData, ConnSocket, errorQuota);
                 exit(5);
             }
             continue;

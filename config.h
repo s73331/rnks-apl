@@ -11,4 +11,4 @@ for Client/ Server
 #define P_Message_8 " port\t\tPort on which to connect. (default: %s)\n"
 #define P_Message_9 " file\t\tFile wich to recieve. (default: empty)\n"
 #define P_Message_10 " window_size\twindow size of Reliable MC Protocol (maximum: 10).\n"
-#define P_Message_11 " Fehlerirgendwas\t\macht was\n"
+#define P_Message_11 " Fehlerirgendwas\tmacht was\n"
