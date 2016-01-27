@@ -21,6 +21,8 @@
 #include "timer.h"
 double errorQuota = 0;
 int manipulating = 0;
+int DEBUG_TIMER = 0;
+
 #pragma comment(lib, "Ws2_32.lib")				// necessary for the WinSock2 lib
 
 #define BUFLEN 512
@@ -198,7 +200,7 @@ void getRequest(struct request* req) {
         exit(-6);
     }
     if (manipulating)
-        printReq(*req, 4);
+        printReq(reqfake, 4);
     else printReq(*req, 0);
 	return;
 }
@@ -272,7 +274,7 @@ int main(int argc, char** argv) {
     char *server = DEFAULT_SERVER;
     char *filename = FILE_TO_WRITE;
     char* port = DEFAULT_PORT;
-    long int window_size = DEFAULT_WINDOW;
+    int window_size = DEFAULT_WINDOW;
     //Parameter ueberpruefen
     if (argc > 1) {
         for (i = 1; i < argc; i++) {
@@ -318,17 +320,6 @@ int main(int argc, char** argv) {
                     }
                     Usage(argv[0]);
                     break;
-                case 'w':			//Window Size
-                    if (argv[i + 1])
-                    {
-                        if (argv[i + 1][0] != '-') {
-                            window_size = strtol(argv[++i], 0, 0);
-                            if (window_size<1 || window_size>10) Usage(argv[0]);
-                            break;
-                        }
-                    }
-                    Usage(argv[0]);
-                    break;
                 default:
                     Usage(argv[0]);
                     break;
@@ -348,6 +339,8 @@ int main(int argc, char** argv) {
     struct request req;
     struct timeval tv;                  //struct for select, if timeout has passed
     tv.tv_sec = 0;
+	int window_start = 0;
+	int markedWindow[] = { 0 };
     fd_set fd;                          //struct for select, if one of the sockets is ready for work
     getRequest(&req);
     if (req.ReqType != ReqHello)
@@ -358,43 +351,92 @@ int main(int argc, char** argv) {
     answreturn(&ans, &req, expectedSequence);
     sendAnswer(&ans);
     expectedSequence++;
-    while (stay)
+	window_size = req.FlNr;
+	SYSTEMTIME st1, st2;
+	int timerNumber = 1;
+	tl = add_timer(tl, TIMEOUT_MULTI, timerNumber);
+	while (stay)
     {   
-        fd_reset(&fd, ConnSocket);                  // add ConnSocket to struct, needs to be redone before every select
-        if (!tl) tl = add_timer(tl, TIMEOUT_MULTI, req.SeNr);
-        tv.tv_usec = (long)((tl->timer)*INT_MS+150*1000);// add 150millis as otherwise our NACK would cross their datapacket
-        s = select(0, &fd, 0, 0, &tv);              // if socket is ready or timer expired 
-        if (!s) //timer expired
+		fd_reset(&fd, ConnSocket);                  // add ConnSocket to struct, needs to be redone before every select
+		if (tl && tl->timer)
+	        tv.tv_usec = (long)(INT_MS+15000);			// add 150millis as otherwise our NACK would cross their datapacket
+		else tv.tv_usec = 0L;
+		GetSystemTime(&st1);
+		s = select(0, &fd, 0, 0, &tv);              // if socket is ready or timer expired 
+		GetSystemTime(&st2);
+		int passed = st2.wMilliseconds - st1.wMilliseconds;
+		if (passed < 0) passed += 1000;
+		if (!s) //timer expired
         {
-            tl = del_timer(tl, req.SeNr, FALSE);
-            answreturn(&ans, &req, expectedSequence);
-            sendAnswer(&ans);
-            continue;
+			if (decrement_timer(tl) != -1){
+				while (tl != NULL && tl->timer == 0)
+				{
+					if (tl->seq_nr == window_start || TRUE)   //abgelaufener timer ist Fenster untergrenze -> Fenster weiterschieben
+					{
+						ans.AnswType = AnswNACK;
+						ans.SeNo = tl->seq_nr;
+						sendAnswer(&ans);								//send NACK
+						tl = del_timer(tl, tl->seq_nr, FALSE);
+						tl = add_timer(tl, TIMEOUT_MULTI, ans.SeNo);
+					}
+				}
+				if (window_start + window_size > timerNumber)
+				{
+					timerNumber++;
+					tl = add_timer(tl, TIMEOUT_MULTI, timerNumber);
+				}
+				continue;
+			}
+			if (window_start + window_size > timerNumber)
+			{
+				timerNumber++;
+				tl = add_timer(tl, TIMEOUT_MULTI, timerNumber);
+			}
+			continue;
         }
         if (s == SOCKET_ERROR)
         {
             fprintf(stderr, "select() failed: error %d\n", WSAGetLastError());
             exit(7);
         }
-        if (errorQuota >= 0 && (int)(errorQuota*RAND_MAX) > rand() || errorQuota<0 && IGNORE_ARRAY_SIZE > req.SeNr && IGNORE_DATA[req.SeNr])
-        {
-            manipulating = 1;
-            getRequest(&req);
-            manipulating = 0;
-            continue;
-        }
-        tl = del_timer(tl, req.SeNr, TRUE);
         getRequest(&req);
-        if (req.SeNr > expectedSequence)
+		if (passed<300 && passed >290) decrement_timer(tl);
+		if (req.ReqType == ReqClose)
+		{
+			if (!req.SeNr)
+			{
+				printf("Received Close with SeNr 0\nexiting\n");
+				getchar();
+				exit(1);
+			}
+			if (rc)                                     // if we're still missing packets
+			{
+				printReq(req, 5);
+				continue;                               // continue sending a NACK
+			}
+			answreturn(&ans, &req, expectedSequence);    // else send a CloseACK
+			if (ans.AnswType != AnswClose)
+			{
+		//		ans.SeNo = 5;
+		//		sendAnswer(&ans);
+				continue;
+			}
+			sendAnswer(&ans);
+			stay = 0;                                   // get out of loop
+		}
+		if (req.SeNr > expectedSequence)
         {
             if (req.ReqType == ReqData)
             {
                 insert(&rc, &req);       // put packet in cache
                 printReq(req, 2);
             }
-            answreturn(&ans, &req, expectedSequence);
+			tl = del_timer(tl, req.SeNr, TRUE);
+		    answreturn(&ans, &req, expectedSequence);
             sendAnswer(&ans);
-            continue;
+			tl = del_timer(tl, expectedSequence, TRUE);
+			tl = add_timer(tl, TIMEOUT_MULTI, expectedSequence);
+		    continue;
         }
         if (req.SeNr < expectedSequence) // NACK from other server, we already have this packet
         {
@@ -405,112 +447,32 @@ int main(int argc, char** argv) {
         {
             strl = addtolist(strl, req.name);            //store string of packet in strlist
             expectedSequence++;
-            while (rc && peek(rc) == expectedSequence)    //if any element is in cache and the first one is our expected 
+			window_start++;
+			tl = del_timer(tl, req.SeNr, TRUE);
+			while (rc && peek(rc) == expectedSequence)    //if any element is in cache and the first one is our expected 
             {
                 cache* ca = get(&rc);                   // get it out
                 strl = addtolist(strl, ca->req.name);   // and store its string
                 printReq(ca->req, 3);
                 free(ca);
                 ca = NULL;
+				window_start++;
                 expectedSequence++;
             }
-            continue;
+			if (rc)
+			{
+				tl = del_timer(tl, window_start + 1, TRUE);
+				tl = add_timer(tl, 3, window_start + 1);
+				answreturn(&ans, &req, window_start + 1);
+				sendAnswer(&ans);
+			}
+			continue;
         }
-        if (req.ReqType == ReqClose)
-        {
-            if (rc)                                     // if we're still missing packets
-            {
-                printReq(req, 5);
-                continue;                               // continue sending a NACK
-            }
-            answreturn(&ans, &req, expectedSequence);    // else send a CloseACK
-            sendAnswer(&ans);
-            stay = 0;                                   // get out of loop
-        }
+
     }
     int w;
     if (w=writefile(filename, strl)) fprintf(stderr, "writefile() returned %i", w);
     freelist(strl);
+	getchar();
     return 0;
 }
-
-	//File erstellen
-	//fp = fopen(Filename, "w+");
-
-	/*while (1)
-	{
-	packetnummer = 0;
-
-	//auf hello warten
-	if (getRequest() == ReqHello)
-	{
-	sendAnswer(AnswHello);
-	status = 1;
-
-	//Daten empfangen
-	while (status != 2)
-	{
-	if (getRequest()->ReqType == ReqData && getRequest()->SeNr == packetnummer)
-	{
-	//richtiges Packet mit richtiger SeNr
-	sendAnswer(AnswOk);
-	fputs(getRequest()->name, fp);
-	packetnummer++;
-	}
-
-	if (getRequest()->SeNr != packetnummer)
-	{
-	//Packet nicht in reihenfolge angekommen
-	sendAnswer(packetnummer);
-	}
-
-	if (getRequest()->ReqType == ReqClose)
-	{
-	//Sender sendet "close"
-	status = 2;
-	sendAnswer(AnswClose);
-	}
-
-	}
-	}
-	}
-
-	int remoteAddrSize = sizeof(struct sockaddr_in6);
-	char message[BUFLEN];
-
-	while (1)
-	{
-
-
-
-
-		printf("Waiting for data...\n");
-		fflush(stdout);
-
-		//clear the buffer by filling null, it might have previously received data
-		memset(buf, '\0', BUFLEN);
-
-		//try to receive some data, this is a blocking call
-		if ((recv_len = recvfrom(ConnSocket, buf, BUFLEN, 0, resultMulticastAddress->ai_addr, resultMulticastAddress)) == SOCKET_ERROR)
-		{
-			printf("recvfrom() failed with error code : %d", WSAGetLastError());
-			exit(EXIT_FAILURE);
-		}
-
-
-
-		printf("Data: %s\n", buf);
-
-
-
-	}
-	exitServer();
-
-	fflush(stdin);
-	getchar();
-
-
-	return 0;
-}
-
-*/
