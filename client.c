@@ -460,7 +460,7 @@ int main(int argc, char *argv[])
                         {
                             windowBase++;
                             tl = del_timer(tl, tl->seq_nr, FALSE);
-                            for (int i = 0; i < 10; i++)                     // wenn a new base is already marked -> push-forward the window
+                            for (int i = 0; i < 10; i++)                     // when a new base is already marked -> push-forward the window
                             {
                                 if (markedWindow[i] == windowBase)
                                 {
