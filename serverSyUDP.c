@@ -70,11 +70,11 @@ int initServer(char *MCAddress, char *Port) {
 		fprintf(stderr, "SERVER: WSAStartup() failed\n");
 		fprintf(stderr, "        error code: %d\n", WSAGetLastError());
 		exit(-1);
-	}
+	} 
 
 	/****************************************************/
-	/***Create Socket, 				  ***/
-	/***connectionless service, addresss family INET6 ***/
+	/*** Create Socket, 				  ***/
+	/*** connectionless service, addresss family INET6 ***/
 	/****************************************************/
 	ConnSocket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 
@@ -94,7 +94,7 @@ int initServer(char *MCAddress, char *Port) {
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_INET6;
 	hints.ai_flags = AI_NUMERICHOST;
-	if (getaddrinfo(MCAddress, Port, &hints, &resultMulticastAddress) != 0) {					//TODO: sendet nur an DEFAULT_PORT
+	if (getaddrinfo(MCAddress, Port, &hints, &resultMulticastAddress) != 0) {
 		fprintf(stderr, "getaddrinfo MCAddress fauled with error: %d\n", WSAGetLastError());
 		WSACleanup();
 		exit(-1);
@@ -160,9 +160,10 @@ int initServer(char *MCAddress, char *Port) {
 	/****************************************************/
 	memcpy(&mreq.ipv6mr_multiaddr, &((struct sockaddr_in6*)(resultMulticastAddress->ai_addr))->sin6_addr, sizeof(mreq.ipv6mr_multiaddr));
 
+
 	/* Accept multicast from any interface */
 	// scope ID from Int. -> to get scopeid :netsh int ipv6 sh addr or ipconfig -all
-	mreq.ipv6mr_interface = IPV6MR_INTERFACE; //my w8 Laptop
+	mreq.ipv6mr_interface = IPV6MR_INTERFACE; 
 
 	/*Join the multicast address (netsh interface ipv6 show joins x)*/
 	if (setsockopt(ConnSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, (const char*)&mreq, sizeof(mreq)) < 0) {
@@ -210,12 +211,10 @@ void sendAnswer(struct answer * answ) {
 	/*** Send NACK back to Unicast Address            ***/
 	/****************************************************/
 	int w;
-    w = sendto(ConnSocket, (const char *)answ, sizeof(*answ), 0, (struct sockaddr *)resultMulticastAddress, sizeof(struct sockaddr_in6));
-	//	recvcc = recvfrom(ConnSocket, (char*)&req, sizeof(req), 0, (struct sockaddr *) resultMulticastAddress, &remoteAddrSize);
-    //w = sendto(ConnSocket, (const char*)answ, sizeof(*answ), 0, resultLocalAddress, resultMulticastAddress->ai_addrlen);
+    	w = sendto(ConnSocket, (const char *)answ, sizeof(*answ), 0, (struct sockaddr *)resultMulticastAddress, sizeof(struct sockaddr_in6));
 	if (w == SOCKET_ERROR)
 		fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
-    else printAns(*answ, 1);
+    	else printAns(*answ, 1);
 }
 
 int exitServer() {
@@ -275,7 +274,7 @@ int main(int argc, char** argv) {
     char *filename = FILE_TO_WRITE;
     char* port = DEFAULT_PORT;
     int window_size = DEFAULT_WINDOW;
-    //Parameter ueberpruefen
+    //Parameter check
     if (argc > 1) {
         for (i = 1; i < argc; i++) {
             if ((argv[i][0] == '-')||((argv[i][0] == '/'))&&(argv[i][1] != 0)&&(argv[i][2] == 0))
@@ -371,11 +370,11 @@ int main(int argc, char** argv) {
 			if (decrement_timer(tl) != -1){
 				while (tl != NULL && tl->timer == 0)
 				{
-					if (tl->seq_nr == window_start || TRUE)   //abgelaufener timer ist Fenster untergrenze -> Fenster weiterschieben
+					if (tl->seq_nr == window_start || TRUE)   //passed Timer is lower window border -> push window
 					{
 						ans.AnswType = AnswNACK;
 						ans.SeNo = tl->seq_nr;
-						sendAnswer(&ans);								//send NACK
+						sendAnswer(&ans);						//send NACK
 						tl = del_timer(tl, tl->seq_nr, FALSE);
 						tl = add_timer(tl, TIMEOUT_MULTI, ans.SeNo);
 					}
